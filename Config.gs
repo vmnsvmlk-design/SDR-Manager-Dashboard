@@ -40,6 +40,9 @@ var JUNK_DISQUALIFIED_REASON = 'Junk Lead';
 // Company property: "SDR Owner (Company)" (owner-reference property, value = ownerId).
 var COMPANY_SDR_OWNER_PROP = 'sdr_owner';
 
+// Company property: record name, used only for the click-through drill-down list.
+var COMPANY_NAME_PROP = 'name';
+
 // Company property: "Account worked after Allocation?" (free-text; "Yes"/"yes" mean worked).
 var COMPANY_WORKED_PROP = 'account_worked_after_allocation';
 

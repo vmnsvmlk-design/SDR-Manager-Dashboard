@@ -69,6 +69,32 @@ function fetchWithRetry(url, options, maxRetries) {
   }
 }
 
+/**
+ * Fetches this HubSpot portal's Hub ID, needed to build "open in HubSpot" links
+ * (https://app.hubspot.com/contacts/<portalId>/company/<id>). Cached for the script's
+ * lifetime since it never changes. Returns null (rather than throwing) if the token
+ * lacks the scope for this endpoint - drill-down lists still work, just without links.
+ */
+function getHubSpotPortalId() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('HUBSPOT_PORTAL_ID');
+  if (cached) return cached;
+
+  try {
+    var response = fetchWithRetry(HUBSPOT_BASE_URL + '/account-info/v3/details', {
+      method: 'get',
+      headers: { Authorization: 'Bearer ' + getHubSpotToken() },
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() >= 300) return null;
+    var portalId = String(JSON.parse(response.getContentText()).portalId);
+    cache.put('HUBSPOT_PORTAL_ID', portalId, 21600); // 6 hours
+    return portalId;
+  } catch (e) {
+    return null;
+  }
+}
+
 function dateFilter(propertyName, startDate, endDate) {
   return {
     propertyName: propertyName,

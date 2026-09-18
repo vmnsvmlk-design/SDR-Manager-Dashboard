@@ -113,6 +113,29 @@
 
     .loading, .error-box { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
     .error-box { color: #E07A7A; }
+
+    .chart-card canvas { cursor: pointer; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal-box {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px 22px; max-width: 480px; width: 90%; max-height: 70vh; overflow-y: auto;
+    }
+    .modal-box h3 { margin: 0 0 4px; font-size: 16px; padding-right: 20px; }
+    .modal-close {
+      float: right; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1;
+      margin-top: -4px;
+    }
+    .modal-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+    .modal-list { list-style: none; margin: 0; padding: 0; }
+    .modal-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .modal-list li:last-child { border-bottom: none; }
+    .modal-list li a { color: var(--blue); text-decoration: none; }
+    .modal-list li a:hover { text-decoration: underline; }
+    .modal-empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
   </style>
 </head>
 <body>
@@ -323,12 +346,20 @@
 
       renderWorkedVsNotWorkedChart('chart-all-allocation', scope, function (o) {
         return { worked: o.accountsWorked, notWorked: o.accountsOwned - o.accountsWorked };
+      }, function (owner, label) {
+        return owner.records.filter(function (r) { return r.worked === (label === 'Worked'); });
       });
       ['warm', 'thirdParty', 'displacement', 'event'].forEach(function (key) {
-        renderWorkedVsNotWorkedChart('chart-' + key + '-worked', scope, function (o) { return o[key]; });
-        renderStatusBreakdownChart('chart-' + key + '-status', scope, function (o) { return o[key]; });
+        renderWorkedVsNotWorkedChart('chart-' + key + '-worked', scope, function (o) { return o[key]; }, function (owner, label) {
+          return owner.records.filter(function (r) { return r[key] && r.worked === (label === 'Worked'); });
+        });
+        renderStatusBreakdownChart('chart-' + key + '-status', scope, function (o) { return o[key]; }, function (owner, label) {
+          return owner.records.filter(function (r) { return r[key] && r.worked && r.lifecycle === label; });
+        });
       });
-      renderSingleSeriesChart('chart-not-converted', scope, function (o) { return o.notYetConverted; }, '#D9A85C');
+      renderSingleSeriesChart('chart-not-converted', scope, function (o) { return o.notYetConverted; }, '#D9A85C', function (owner) {
+        return owner.records.filter(function (r) { return r.worked && !r.converted; });
+      });
     }
 
     function categoryRowHtml(key, title) {
@@ -361,12 +392,19 @@
       };
     }
 
-    function renderWorkedVsNotWorkedChart(canvasId, scope, accessor) {
+    function renderWorkedVsNotWorkedChart(canvasId, scope, accessor, recordFilter) {
       var el = document.getElementById(canvasId);
       if (!el) return;
       var labels = scope.map(function (o) { return o.name; });
       var worked = scope.map(function (o) { return accessor(o).worked; });
       var notWorked = scope.map(function (o) { return accessor(o).notWorked; });
+      var options = baseChartOptions(true);
+      options.onClick = function (evt, elements) {
+        if (!elements.length) return;
+        var owner = scope[elements[0].index];
+        var label = elements[0].datasetIndex === 0 ? 'Worked' : 'Not worked';
+        openRecordsModal(owner.name + ' — ' + label, recordFilter(owner, label));
+      };
       var chart = new Chart(el, {
         type: 'bar',
         data: {
@@ -376,12 +414,12 @@
             { label: 'Not worked', data: notWorked, backgroundColor: NOT_WORKED_COLOR }
           ]
         },
-        options: baseChartOptions(true)
+        options: options
       });
       chartInstances.push(chart);
     }
 
-    function renderStatusBreakdownChart(canvasId, scope, accessor) {
+    function renderStatusBreakdownChart(canvasId, scope, accessor, recordFilter) {
       var el = document.getElementById(canvasId);
       if (!el) return;
       var labels = scope.map(function (o) { return o.name; });
@@ -397,25 +435,72 @@
           backgroundColor: PALETTE[i % PALETTE.length]
         };
       });
+      var options = baseChartOptions(true);
+      options.onClick = function (evt, elements) {
+        if (!elements.length) return;
+        var owner = scope[elements[0].index];
+        var label = keys[elements[0].datasetIndex];
+        openRecordsModal(owner.name + ' — ' + label, recordFilter(owner, label));
+      };
       var chart = new Chart(el, {
         type: 'bar',
         data: { labels: labels, datasets: datasets },
-        options: baseChartOptions(true)
+        options: options
       });
       chartInstances.push(chart);
     }
 
-    function renderSingleSeriesChart(canvasId, scope, accessor, color) {
+    function renderSingleSeriesChart(canvasId, scope, accessor, color, recordFilter) {
       var el = document.getElementById(canvasId);
       if (!el) return;
       var labels = scope.map(function (o) { return o.name; });
       var data = scope.map(function (o) { return accessor(o); });
+      var options = baseChartOptions(false);
+      options.onClick = function (evt, elements) {
+        if (!elements.length) return;
+        var owner = scope[elements[0].index];
+        openRecordsModal(owner.name + ' — Not yet converted', recordFilter(owner));
+      };
       var chart = new Chart(el, {
         type: 'bar',
         data: { labels: labels, datasets: [{ label: 'Not yet converted', data: data, backgroundColor: color }] },
-        options: baseChartOptions(false)
+        options: options
       });
       chartInstances.push(chart);
+    }
+
+    function escapeHtml(s) {
+      var div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function openRecordsModal(title, records) {
+      var portalId = accountActivityData && accountActivityData.portalId;
+      var listHtml = records.map(function (r) {
+        var label = escapeHtml(r.name);
+        if (portalId) {
+          var url = 'https://app.hubspot.com/contacts/' + portalId + '/company/' + r.id;
+          return '<li><a href="' + url + '" target="_blank" rel="noopener">' + label + '</a></li>';
+        }
+        return '<li>' + label + '</li>';
+      }).join('');
+
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML =
+        '<div class="modal-box">' +
+          '<span class="modal-close">&times;</span>' +
+          '<h3>' + escapeHtml(title) + '</h3>' +
+          '<div class="modal-sub">' + records.length + ' compan' + (records.length === 1 ? 'y' : 'ies') +
+            (portalId && records.length ? ' — click a name to open it in HubSpot' : '') + '</div>' +
+          (records.length ? '<ul class="modal-list">' + listHtml + '</ul>' : '<div class="modal-empty">No companies match.</div>') +
+        '</div>';
+
+      function close() { document.body.removeChild(overlay); }
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+      overlay.querySelector('.modal-close').addEventListener('click', close);
+      document.body.appendChild(overlay);
     }
 
     function showError(containerId, err) {

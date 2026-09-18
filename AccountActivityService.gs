@@ -8,6 +8,7 @@ function buildAccountActivityPayload() {
   var ownerIds = getAllOwnerIds();
   var properties = [
     COMPANY_SDR_OWNER_PROP,
+    COMPANY_NAME_PROP,
     COMPANY_WORKED_PROP,
     COMPANY_REACHED_OUT_PROP,
     COMPANY_TAG_PROP,
@@ -32,7 +33,8 @@ function buildAccountActivityPayload() {
       thirdParty: { worked: 0, notWorked: 0, statusCounts: {} },
       displacement: { worked: 0, notWorked: 0, statusCounts: {} },
       event: { worked: 0, notWorked: 0, statusCounts: {} },
-      notYetConverted: 0
+      notYetConverted: 0,
+      records: [] // raw per-company rows, for the dashboard's click-through drill-down
     };
   });
 
@@ -71,11 +73,33 @@ function buildAccountActivityPayload() {
       }
     }
 
-    if (WARM_TAG_VALUES.indexOf(tag) !== -1) bump(bucket.warm, worked, lifecycle);
-    if (THIRD_PARTY_TAG_VALUES.indexOf(tag) !== -1) bump(bucket.thirdParty, worked, lifecycle);
-    if (incumbentClm) bump(bucket.displacement, worked, lifecycle);
-    if (EVENT_TAG_VALUES.indexOf(tag) !== -1) bump(bucket.event, worked, lifecycle);
+    var isWarm = WARM_TAG_VALUES.indexOf(tag) !== -1;
+    var isThirdParty = THIRD_PARTY_TAG_VALUES.indexOf(tag) !== -1;
+    var isDisplacement = !!incumbentClm;
+    var isEvent = EVENT_TAG_VALUES.indexOf(tag) !== -1;
+
+    if (isWarm) bump(bucket.warm, worked, lifecycle);
+    if (isThirdParty) bump(bucket.thirdParty, worked, lifecycle);
+    if (isDisplacement) bump(bucket.displacement, worked, lifecycle);
+    if (isEvent) bump(bucket.event, worked, lifecycle);
+
+    bucket.records.push({
+      id: c.id,
+      name: props[COMPANY_NAME_PROP] || '(unnamed company)',
+      worked: worked,
+      warm: isWarm,
+      thirdParty: isThirdParty,
+      displacement: isDisplacement,
+      event: isEvent,
+      lifecycle: lifecycle || 'Unknown',
+      converted: worked && CONVERTED_LIFECYCLE_VALUES.indexOf(lifecycle) !== -1
+    });
   });
 
-  return { generatedAt: new Date().toISOString(), owners: perOwner, regions: REGIONS };
+  return {
+    generatedAt: new Date().toISOString(),
+    portalId: getHubSpotPortalId(),
+    owners: perOwner,
+    regions: REGIONS
+  };
 }
