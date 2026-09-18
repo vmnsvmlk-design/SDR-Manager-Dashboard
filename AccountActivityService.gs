@@ -5,7 +5,9 @@
  * Region or SDR Owner filter without any extra round-trips to HubSpot.
  */
 function buildAccountActivityPayload() {
+  var roster = getRoster();
   var ownerIds = getAllOwnerIds();
+  var ownersMap = getAllHubSpotOwnersMap();
   var properties = [
     COMPANY_SDR_OWNER_PROP,
     COMPANY_NAME_PROP,
@@ -13,7 +15,12 @@ function buildAccountActivityPayload() {
     COMPANY_REACHED_OUT_PROP,
     COMPANY_TAG_PROP,
     COMPANY_LIFECYCLE_PROP,
-    COMPANY_INCUMBENT_CLM_PROP
+    COMPANY_INCUMBENT_CLM_PROP,
+    'domain',
+    COMPANY_ICP_CATEGORY_PROP,
+    COMPANY_OWNER_PROP,
+    COMPANY_LAST_ACTIVITY_PROP,
+    COMPANY_ALLOCATION_DATE_PROP
   ];
 
   var companies = hubspotSearch('companies', [{
@@ -24,8 +31,8 @@ function buildAccountActivityPayload() {
   ownerIds.forEach(function (id) {
     perOwner[id] = {
       ownerId: id,
-      name: SDR_ROSTER[id].name,
-      region: SDR_ROSTER[id].region,
+      name: roster[id].name,
+      region: roster[id].region,
       accountsOwned: 0,
       accountsWorked: 0,
       reachedOutContactsSum: 0,
@@ -92,7 +99,16 @@ function buildAccountActivityPayload() {
       displacement: isDisplacement,
       event: isEvent,
       lifecycle: lifecycle || 'Unknown',
-      converted: worked && CONVERTED_LIFECYCLE_VALUES.indexOf(lifecycle) !== -1
+      converted: worked && CONVERTED_LIFECYCLE_VALUES.indexOf(lifecycle) !== -1,
+      // Extra columns shown only in the drill-down modal table, not used for chart math.
+      domain: props.domain || '',
+      icpCategory: props[COMPANY_ICP_CATEGORY_PROP] || '',
+      lifecycleStage: lifecycle || '',
+      sdrOwner: roster[ownerId] ? roster[ownerId].name : ownerId,
+      companyOwner: ownersMap[props[COMPANY_OWNER_PROP]] || props[COMPANY_OWNER_PROP] || '',
+      lastActivityDate: props[COMPANY_LAST_ACTIVITY_PROP] || '',
+      allocationDate: props[COMPANY_ALLOCATION_DATE_PROP] || '',
+      tagCategory: tag || ''
     });
   });
 
@@ -100,6 +116,6 @@ function buildAccountActivityPayload() {
     generatedAt: new Date().toISOString(),
     portalId: getHubSpotPortalId(),
     owners: perOwner,
-    regions: REGIONS
+    regions: getRegionsInUse()
   };
 }

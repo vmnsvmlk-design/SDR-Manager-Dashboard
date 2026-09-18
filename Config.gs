@@ -75,8 +75,11 @@ var CONVERTED_LIFECYCLE_VALUES = [
   'Customer/ Churned Customer'
 ];
 
-// SDR roster: HubSpot ownerId (string) -> { name, region }
-var SDR_ROSTER = {
+// Seed SDR roster: HubSpot ownerId (string) -> { name, region }. Used ONLY the first time
+// the app runs, to populate the Roster Google Sheet (see RosterService.gs). After that,
+// the Sheet is the source of truth - edit rosters/regions on the Inputs tab or directly in
+// the Sheet, not here. getAllOwnerIds()/getOwnerIdsForRegion() live in RosterService.gs.
+var DEFAULT_ROSTER = {
   '97411405':   { name: 'Jody Walker',        region: 'NAM' },
   '97411438':   { name: 'Jonathan Hurt',      region: 'NAM' },
   '87607260':   { name: 'Bobbi Bukovac',      region: 'NAM' },
@@ -92,12 +95,63 @@ var SDR_ROSTER = {
 
 var REGIONS = ['NAM', 'EMEA', 'APAC'];
 
-function getOwnerIdsForRegion(region) {
-  return Object.keys(SDR_ROSTER).filter(function (id) {
-    return SDR_ROSTER[id].region === region;
-  });
-}
+// ---- Contact Activity tab ----
 
-function getAllOwnerIds() {
-  return Object.keys(SDR_ROSTER);
-}
+// Contact property: "SDR owner (Contact)" (owner-reference property, value = ownerId).
+var CONTACT_SDR_OWNER_PROP = 'sdr_from_company';
+var CONTACT_COMPANY_DOMAIN_PROP = 'company_domain_name';
+
+// Engagement (call/email) properties - both objects share these internal names.
+var ENGAGEMENT_OWNER_PROP = 'hubspot_owner_id';
+var ENGAGEMENT_TIMESTAMP_PROP = 'hs_timestamp';
+var CALL_DIRECTION_PROP = 'hs_call_direction';
+var CALL_DIRECTION_OUTBOUND = 'OUTBOUND';
+var EMAIL_DIRECTION_PROP = 'hs_email_direction';
+var EMAIL_DIRECTION_OUTGOING = 'EMAIL'; // HubSpot's internal value for "Outgoing"
+
+// "Activity date does not matter" per spec, but pulling truly all-time call/email history
+// can be very large and slow for an active team. Capped to a rolling window as a practical
+// default - raise this if you need a longer look-back (costs more load time / API volume).
+var ENGAGEMENT_LOOKBACK_DAYS = 120;
+
+// ---- MOFU Activity tab ----
+
+var STAGE_SCHEDULED = '144930627';        // "Scheduled" - meetings booked / MQL-aging bucket
+var STAGE_SALES_ACCEPTED = '144930628';   // "Sales Accepted Account"
+var STAGE_NO_SHOW = '198705765';          // "No Show/ Cancelled/ Rescheduled"
+
+var STAGE_ENTERED_SCHEDULED_PROP = SCHEDULED_STAGE_ENTERED_PROP; // reuse from above
+var STAGE_ENTERED_SALES_ACCEPTED_PROP = 'hs_v2_date_entered_144930628';
+var STAGE_ENTERED_NO_SHOW_PROP = 'hs_v2_date_entered_198705765';
+
+// Deal stages that count as an "Opportunity" for MOFU (deliberately different from the
+// Summary tab's SQL_STAGE_IDS - no closed won/lost, but includes Debook + Deal Desk Verified).
+// NOTE: could not independently confirm "Debook" (1422037570) belongs to the Sales Pipeline
+// pipeline (no hs_v2_date_entered_1422037570 property exists on this portal) - included per
+// spec anyway; since it's always AND-ed with pipeline = Sales Pipeline, it safely contributes
+// zero rather than over-counting if it turns out to belong to a different pipeline.
+var OPPORTUNITY_STAGE_IDS = [
+  'qualifiedtobuy',
+  'presentationscheduled',
+  'decisionmakerboughtin',
+  '10679404',    // Contracting (New Business)
+  '1422037570',  // Debook (unconfirmed pipeline - see note above)
+  '1365874062'   // Deal Desk Verified Closed Won (Sales Pipeline - confirmed)
+];
+
+var DEAL_WORKED_AFTER_NO_SHOW_PROP = 'worked_after_no_show'; // free-text; "Yes"/"yes" = worked
+var DEAL_TIME_IN_CURRENT_STAGE_PROP = 'hs_v2_time_in_current_stage'; // seconds, number
+
+// ---- SDR Performance table (Summary tab) ----
+
+var DEAL_FINAL_LEAD_SOURCE_PROP = 'final_lead_source__for_org_reporting_';
+var SQL_ALLOWED_LEAD_SOURCE_VALUES = ['Allbound', 'Pure Outbound'];
+
+// ---- Drill-down modal columns (shown across every tab) ----
+
+var DEAL_LEAD_SOURCE_PROP = 'lead_source_deal';
+var DEAL_NAME_PROP = 'dealname';
+var COMPANY_ICP_CATEGORY_PROP = 'icp_category_20';
+var COMPANY_LAST_ACTIVITY_PROP = 'notes_last_updated';
+var COMPANY_OWNER_PROP = 'hubspot_owner_id';
+var COMPANY_ALLOCATION_DATE_PROP = 'allocation_date';

@@ -95,6 +95,139 @@ function getHubSpotPortalId() {
   }
 }
 
+/**
+ * Looks up a HubSpot user/owner by email (used by the Inputs tab's "add SDR" form, so the
+ * manager only needs to know the person's email rather than their internal owner ID).
+ */
+function getHubSpotOwnerByEmail(email) {
+  var url = HUBSPOT_BASE_URL + '/crm/v3/owners?email=' + encodeURIComponent(email);
+  var response = fetchWithRetry(url, {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + getHubSpotToken() },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() >= 300) {
+    throw new Error('HubSpot API error (' + response.getResponseCode() + ') looking up owner: ' + response.getContentText());
+  }
+  var results = JSON.parse(response.getContentText()).results || [];
+  if (!results.length) throw new Error('No HubSpot user found with email ' + email + '.');
+  var owner = results[0];
+  return { ownerId: String(owner.id), name: (owner.firstName + ' ' + owner.lastName).trim() };
+}
+
+/**
+ * Batch-resolves the first associated object id for each `fromObjectType` record, via the
+ * CRM v4 associations API (chunked to HubSpot's 100-per-request batch limit). Used to find
+ * which contact each call/email engagement belongs to.
+ * Returns a map of { [fromId]: toId }. Records with no association are omitted.
+ */
+function batchGetFirstAssociation(fromObjectType, toObjectType, fromIds) {
+  var map = {};
+  var chunkSize = 100;
+  for (var i = 0; i < fromIds.length; i += chunkSize) {
+    var chunk = fromIds.slice(i, i + chunkSize);
+    var url = HUBSPOT_BASE_URL + '/crm/v4/associations/' + fromObjectType + '/' + toObjectType + '/batch/read';
+    var response = fetchWithRetry(url, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + getHubSpotToken() },
+      payload: JSON.stringify({ inputs: chunk.map(function (id) { return { id: String(id) }; }) }),
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() >= 300) {
+      throw new Error('HubSpot API error (' + response.getResponseCode() + ') on associations ' + fromObjectType + '->' + toObjectType + ': ' + response.getContentText());
+    }
+    var json = JSON.parse(response.getContentText());
+    // HubSpot's v4 batch associations "from" field naming has varied across API versions/docs
+    // (`from` vs `_from`) - check both defensively rather than betting on one silently
+    // breaking this into an all-empty map.
+    (json.results || []).forEach(function (result) {
+      var fromObj = result.from || result._from;
+      var fromId = fromObj ? fromObj.id : null;
+      var toList = result.to || [];
+      if (fromId && toList.length) map[fromId] = toList[0].toObjectId;
+    });
+  }
+  return map;
+}
+
+/**
+ * Shared query shape used by Summary, MOFU, and SDR Performance: deals in Sales Pipeline,
+ * owned by one of `ownerIds`, whose `dateProp` falls within [start, end], plus any
+ * additional filters (e.g. a dealstage IN[...] restriction).
+ */
+function searchDealsInWindow(dateProp, start, end, ownerIds, extraFilters, properties) {
+  var filters = [
+    eqFilter('pipeline', PIPELINE_ID),
+    dateFilter(dateProp, start, end),
+    inFilter(DEAL_SDR_OWNER_PROP, ownerIds)
+  ].concat(extraFilters || []);
+  return hubspotSearch('deals', [{ filters: filters }], properties);
+}
+
+/**
+ * Batch-fetches full records (with the given properties) for a list of object ids,
+ * chunked to HubSpot's 100-per-request batch limit. Returns a map of { [id]: record }.
+ */
+function batchGetObjects(objectType, ids, properties) {
+  var result = {};
+  var chunkSize = 100;
+  for (var i = 0; i < ids.length; i += chunkSize) {
+    var chunk = ids.slice(i, i + chunkSize);
+    var url = HUBSPOT_BASE_URL + '/crm/v3/objects/' + objectType + '/batch/read';
+    var response = fetchWithRetry(url, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + getHubSpotToken() },
+      payload: JSON.stringify({ properties: properties, inputs: chunk.map(function (id) { return { id: String(id) }; }) }),
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() >= 300) {
+      throw new Error('HubSpot API error (' + response.getResponseCode() + ') on batch read ' + objectType + ': ' + response.getContentText());
+    }
+    var json = JSON.parse(response.getContentText());
+    (json.results || []).forEach(function (r) { result[r.id] = r; });
+  }
+  return result;
+}
+
+/**
+ * Full HubSpot owner directory (ownerId -> display name), used to resolve generic "Deal
+ * owner"/"Company owner" columns in drill-down tables (which may be an AE or anyone else,
+ * not just our tracked SDRs). Cached for a few hours since it changes rarely. Best-effort:
+ * returns {} rather than throwing if the token lacks access, so a drill-down column just
+ * falls back to showing the raw owner id instead of breaking the whole payload.
+ */
+function getAllHubSpotOwnersMap() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('HUBSPOT_OWNERS_MAP');
+  if (cached) return JSON.parse(cached);
+
+  var map = {};
+  try {
+    var after = null;
+    do {
+      var url = HUBSPOT_BASE_URL + '/crm/v3/owners?limit=100' + (after ? '&after=' + after : '');
+      var response = fetchWithRetry(url, {
+        method: 'get',
+        headers: { Authorization: 'Bearer ' + getHubSpotToken() },
+        muteHttpExceptions: true
+      });
+      if (response.getResponseCode() >= 300) break;
+      var json = JSON.parse(response.getContentText());
+      (json.results || []).forEach(function (o) {
+        map[String(o.id)] = ((o.firstName || '') + ' ' + (o.lastName || '')).trim() || o.email || String(o.id);
+      });
+      after = json.paging && json.paging.next ? json.paging.next.after : null;
+    } while (after);
+  } catch (e) {
+    // best-effort - fall through with whatever was collected
+  }
+
+  cache.put('HUBSPOT_OWNERS_MAP', JSON.stringify(map), 21600); // 6 hours
+  return map;
+}
+
 function dateFilter(propertyName, startDate, endDate) {
   return {
     propertyName: propertyName,
