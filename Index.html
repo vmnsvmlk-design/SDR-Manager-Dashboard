@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0F1419;
+      --card: #1A2029;
+      --card-alt: #202836;
+      --border: #2A3341;
+      --text: #E6E9EE;
+      --muted: #8B96A5;
+      --blue: #5B9BD5;
+      --teal: #4DB6A4;
+      --purple: #B99BD5;
+      --gold: #D9A85C;
+      --green: #5FB88F;
+      --notworked: #4A5568;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+    }
+    .sidebar h1 {
+      font-size: 15px;
+      margin: 0 20px 24px;
+      color: var(--text);
+    }
+    .nav-item {
+      padding: 12px 20px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 14px;
+      border-left: 3px solid transparent;
+    }
+    .nav-item.active { color: var(--text); border-left-color: var(--blue); background: rgba(91,155,213,0.08); }
+    .nav-item.disabled { color: #4A5568; cursor: not-allowed; }
+    .nav-item .soon { font-size: 10px; display: block; margin-top: 2px; }
+
+    .main { flex: 1; padding: 28px 32px; overflow-x: hidden; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .page-header h2 { margin: 0; font-size: 20px; }
+    .page-header .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+    .filter-toggle { display: flex; gap: 8px; align-items: center; }
+    .toggle-group { display: flex; background: var(--card); border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
+    .toggle-group button {
+      background: transparent; border: none; color: var(--muted); padding: 6px 14px;
+      border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    .toggle-group button.active { background: var(--blue); color: #0F1419; font-weight: 600; }
+    select.filter-select {
+      background: var(--card); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 10px; font-size: 13px;
+    }
+
+    .region-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .region-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .region-card h3 { margin: 0 0 16px; font-size: 15px; text-align: center; }
+
+    .trophy-row { display: flex; justify-content: center; align-items: flex-end; gap: 14px; margin-bottom: 20px; min-height: 150px; }
+    .trophy { text-align: center; width: 90px; }
+    .trophy .medal {
+      width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;
+    }
+    .trophy.gold .medal { background: var(--gold); color: #2b2410; order: -1; }
+    .trophy.silver .medal { background: #A9B4C0; color: #23282e; }
+    .trophy.bronze .medal { background: #C0895B; color: #2b1c10; }
+    .trophy .name { font-size: 12px; color: var(--text); min-height: 32px; }
+    .trophy .count { font-size: 18px; font-weight: 700; margin-top: 2px; }
+    .trophy.empty .medal { background: #232B36; }
+    .trophy.empty .name, .trophy.empty .count { color: #47505c; }
+    .trophy-row .place-1 { order: 2; }
+    .trophy-row .place-2 { order: 1; }
+    .trophy-row .place-3 { order: 3; }
+
+    .sub-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tile { background: var(--card-alt); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+    .tile .value { font-size: 24px; font-weight: 700; }
+    .tile .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+    .kpi-card .value { font-size: 28px; font-weight: 700; }
+    .kpi-card .label { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+    .chart-card h4 { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
+    .chart-card canvas { max-height: 280px; }
+    .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    .loading, .error-box { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+    .error-box { color: #E07A7A; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="sidebar">
+      <h1>SDR Manager Dashboard</h1>
+      <div class="nav-item active" data-page="summary">Summary</div>
+      <div class="nav-item" data-page="account-activity">Account Activity</div>
+      <div class="nav-item disabled">Contact Activity<span class="soon">Coming soon</span></div>
+      <div class="nav-item disabled">MOFU Activity<span class="soon">Coming soon</span></div>
+    </div>
+
+    <div class="main">
+      <!-- SUMMARY PAGE -->
+      <div class="page active" id="page-summary">
+        <div class="page-header">
+          <div>
+            <h2>Summary</h2>
+            <div class="subtitle" id="summary-quarter-label">Loading current fiscal quarter…</div>
+          </div>
+        </div>
+        <div id="summary-content"><div class="loading">Loading data from HubSpot…</div></div>
+      </div>
+
+      <!-- ACCOUNT ACTIVITY PAGE -->
+      <div class="page" id="page-account-activity">
+        <div class="page-header">
+          <div>
+            <h2>Account Activity</h2>
+            <div class="subtitle">All accounts currently allocated, regardless of allocation date</div>
+          </div>
+          <div class="filter-toggle">
+            <div class="toggle-group">
+              <button id="mode-region" class="active">Region</button>
+              <button id="mode-sdr">SDR Owner</button>
+            </div>
+            <select id="region-select" class="filter-select">
+              <option value="ALL">All Regions</option>
+              <option value="NAM">NAM</option>
+              <option value="EMEA">EMEA</option>
+              <option value="APAC">APAC</option>
+            </select>
+            <select id="sdr-select" class="filter-select" style="display:none;"></select>
+          </div>
+        </div>
+        <div id="account-activity-content"><div class="loading">Loading data from HubSpot…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var PALETTE = ['#5B9BD5', '#4DB6A4', '#B99BD5', '#D9A85C', '#5FB88F', '#E07A7A', '#8AA6C2', '#C9A0DC', '#7FB3D5', '#F2B880', '#95A5A6'];
+    var WORKED_COLOR = '#4DB6A4';
+    var NOT_WORKED_COLOR = '#4A5568';
+
+    var summaryData = null;
+    var accountActivityData = null;
+    var chartInstances = [];
+    var filterMode = 'region'; // 'region' | 'sdr'
+    var selectedRegion = 'ALL';
+    var selectedSdrId = null;
+
+    // ---- Navigation ----
+    document.querySelectorAll('.nav-item[data-page]').forEach(function (item) {
+      item.addEventListener('click', function () {
+        document.querySelectorAll('.nav-item[data-page]').forEach(function (n) { n.classList.remove('active'); });
+        item.classList.add('active');
+        document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+        document.getElementById('page-' + item.getAttribute('data-page')).classList.add('active');
+      });
+    });
+
+    // ---- Summary page ----
+    function loadSummary() {
+      google.script.run
+        .withSuccessHandler(renderSummary)
+        .withFailureHandler(function (err) { showError('summary-content', err); })
+        .buildSummaryPayload();
+    }
+
+    function renderSummary(data) {
+      summaryData = data;
+      document.getElementById('summary-quarter-label').textContent = data.quarterLabel + ' · always shows the current fiscal quarter';
+
+      var order = ['NAM', 'EMEA', 'APAC'];
+      var html = '<div class="region-row">';
+      order.forEach(function (region) {
+        var r = data.regions[region];
+        html += '<div class="region-card"><h3>' + region + ' Leaderboard</h3>';
+        html += '<div class="trophy-row">';
+        html += trophyHtml(r.leaderboard[0], 'gold', 'place-1');
+        html += trophyHtml(r.leaderboard[1], 'silver', 'place-2');
+        html += trophyHtml(r.leaderboard[2], 'bronze', 'place-3');
+        html += '</div>';
+        html += '<div class="sub-tiles">';
+        html += '<div class="tile"><div class="value">' + r.totalSQLs + '</div><div class="label">Total SQLs</div></div>';
+        html += '<div class="tile"><div class="value">' + r.totalMeetings + '</div><div class="label">Total Meetings</div></div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+      document.getElementById('summary-content').innerHTML = html;
+    }
+
+    function trophyHtml(entry, tier, placeClass) {
+      if (!entry) {
+        return '<div class="trophy empty ' + placeClass + '"><div class="medal">–</div><div class="name">—</div><div class="count">—</div></div>';
+      }
+      return '<div class="trophy ' + tier + ' ' + placeClass + '">' +
+        '<div class="medal">' + (tier === 'gold' ? '1' : tier === 'silver' ? '2' : '3') + '</div>' +
+        '<div class="name">' + entry.name + '</div>' +
+        '<div class="count">' + entry.sqls + '</div>' +
+        '</div>';
+    }
+
+    // ---- Account Activity page ----
+    document.getElementById('mode-region').addEventListener('click', function () {
+      filterMode = 'region';
+      document.getElementById('mode-region').classList.add('active');
+      document.getElementById('mode-sdr').classList.remove('active');
+      document.getElementById('region-select').style.display = '';
+      document.getElementById('sdr-select').style.display = 'none';
+      renderAccountActivity();
+    });
+    document.getElementById('mode-sdr').addEventListener('click', function () {
+      filterMode = 'sdr';
+      document.getElementById('mode-sdr').classList.add('active');
+      document.getElementById('mode-region').classList.remove('active');
+      document.getElementById('sdr-select').style.display = '';
+      document.getElementById('region-select').style.display = 'none';
+      renderAccountActivity();
+    });
+    document.getElementById('region-select').addEventListener('change', function (e) {
+      selectedRegion = e.target.value;
+      renderAccountActivity();
+    });
+    document.getElementById('sdr-select').addEventListener('change', function (e) {
+      selectedSdrId = e.target.value;
+      renderAccountActivity();
+    });
+
+    function loadAccountActivity() {
+      google.script.run
+        .withSuccessHandler(function (data) {
+          accountActivityData = data;
+          populateSdrSelect(data);
+          renderAccountActivity();
+        })
+        .withFailureHandler(function (err) { showError('account-activity-content', err); })
+        .buildAccountActivityPayload();
+    }
+
+    function populateSdrSelect(data) {
+      var sel = document.getElementById('sdr-select');
+      sel.innerHTML = '';
+      var owners = Object.keys(data.owners).map(function (id) { return data.owners[id]; })
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      owners.forEach(function (o) {
+        var opt = document.createElement('option');
+        opt.value = o.ownerId;
+        opt.textContent = o.name + ' (' + o.region + ')';
+        sel.appendChild(opt);
+      });
+      if (owners.length && !selectedSdrId) selectedSdrId = owners[0].ownerId;
+    }
+
+    function currentOwnerScope() {
+      if (!accountActivityData) return [];
+      var owners = accountActivityData.owners;
+      if (filterMode === 'sdr') {
+        return selectedSdrId ? [owners[selectedSdrId]] : [];
+      }
+      var all = Object.keys(owners).map(function (id) { return owners[id]; });
+      if (selectedRegion === 'ALL') return all;
+      return all.filter(function (o) { return o.region === selectedRegion; });
+    }
+
+    function renderAccountActivity() {
+      if (!accountActivityData) return;
+      destroyCharts();
+      var scope = currentOwnerScope();
+
+      var accountsOwned = sumBy(scope, function (o) { return o.accountsOwned; });
+      var accountsWorked = sumBy(scope, function (o) { return o.accountsWorked; });
+      var accountsNotWorked = accountsOwned - accountsWorked;
+      var reachedOutSum = sumBy(scope, function (o) { return o.reachedOutContactsSum; });
+      var avgContacts = accountsWorked > 0 ? (reachedOutSum / accountsWorked) : 0;
+
+      var html = '';
+      html += '<div class="kpi-row">';
+      html += kpiHtml(accountsOwned, 'Accounts Owned');
+      html += kpiHtml(accountsWorked, 'Accounts Worked');
+      html += kpiHtml(accountsNotWorked, 'Accounts Not Worked');
+      html += kpiHtml(avgContacts.toFixed(1), 'Avg Contacts per Account (worked)');
+      html += '</div>';
+
+      html += '<div class="chart-card"><h4>All allocation types</h4><canvas id="chart-all-allocation"></canvas></div>';
+
+      html += categoryRowHtml('warm', 'Warm accounts');
+      html += categoryRowHtml('thirdParty', '3rd party accounts');
+      html += categoryRowHtml('displacement', 'Displacement accounts');
+      html += categoryRowHtml('event', 'Event accounts');
+
+      html += '<div class="chart-card"><h4>Accounts not yet converted to a meeting (worked accounts, not MQL / Opportunity / Current Customer)</h4><canvas id="chart-not-converted"></canvas></div>';
+
+      document.getElementById('account-activity-content').innerHTML = html;
+
+      renderWorkedVsNotWorkedChart('chart-all-allocation', scope, function (o) {
+        return { worked: o.accountsWorked, notWorked: o.accountsOwned - o.accountsWorked };
+      });
+      ['warm', 'thirdParty', 'displacement', 'event'].forEach(function (key) {
+        renderWorkedVsNotWorkedChart('chart-' + key + '-worked', scope, function (o) { return o[key]; });
+        renderStatusBreakdownChart('chart-' + key + '-status', scope, function (o) { return o[key]; });
+      });
+      renderSingleSeriesChart('chart-not-converted', scope, function (o) { return o.notYetConverted; }, '#D9A85C');
+    }
+
+    function categoryRowHtml(key, title) {
+      return '<div class="chart-row">' +
+        '<div class="chart-card"><h4>' + title + ' worked vs not worked</h4><canvas id="chart-' + key + '-worked"></canvas></div>' +
+        '<div class="chart-card"><h4>' + title + ' worked, status</h4><canvas id="chart-' + key + '-status"></canvas></div>' +
+        '</div>';
+    }
+
+    function kpiHtml(value, label) {
+      return '<div class="kpi-card"><div class="value">' + value + '</div><div class="label">' + label + '</div></div>';
+    }
+
+    function sumBy(list, fn) { return list.reduce(function (s, o) { return s + (fn(o) || 0); }, 0); }
+
+    function destroyCharts() {
+      chartInstances.forEach(function (c) { c.destroy(); });
+      chartInstances = [];
+    }
+
+    function baseChartOptions(stacked) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#E6E9EE' } } },
+        scales: {
+          x: { stacked: stacked, ticks: { color: '#8B96A5' }, grid: { color: '#2A3341' } },
+          y: { stacked: stacked, beginAtZero: true, ticks: { color: '#8B96A5' }, grid: { color: '#2A3341' } }
+        }
+      };
+    }
+
+    function renderWorkedVsNotWorkedChart(canvasId, scope, accessor) {
+      var el = document.getElementById(canvasId);
+      if (!el) return;
+      var labels = scope.map(function (o) { return o.name; });
+      var worked = scope.map(function (o) { return accessor(o).worked; });
+      var notWorked = scope.map(function (o) { return accessor(o).notWorked; });
+      var chart = new Chart(el, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Worked', data: worked, backgroundColor: WORKED_COLOR },
+            { label: 'Not worked', data: notWorked, backgroundColor: NOT_WORKED_COLOR }
+          ]
+        },
+        options: baseChartOptions(true)
+      });
+      chartInstances.push(chart);
+    }
+
+    function renderStatusBreakdownChart(canvasId, scope, accessor) {
+      var el = document.getElementById(canvasId);
+      if (!el) return;
+      var labels = scope.map(function (o) { return o.name; });
+      var statusKeys = {};
+      scope.forEach(function (o) {
+        Object.keys(accessor(o).statusCounts || {}).forEach(function (k) { statusKeys[k] = true; });
+      });
+      var keys = Object.keys(statusKeys);
+      var datasets = keys.map(function (key, i) {
+        return {
+          label: key,
+          data: scope.map(function (o) { return (accessor(o).statusCounts || {})[key] || 0; }),
+          backgroundColor: PALETTE[i % PALETTE.length]
+        };
+      });
+      var chart = new Chart(el, {
+        type: 'bar',
+        data: { labels: labels, datasets: datasets },
+        options: baseChartOptions(true)
+      });
+      chartInstances.push(chart);
+    }
+
+    function renderSingleSeriesChart(canvasId, scope, accessor, color) {
+      var el = document.getElementById(canvasId);
+      if (!el) return;
+      var labels = scope.map(function (o) { return o.name; });
+      var data = scope.map(function (o) { return accessor(o); });
+      var chart = new Chart(el, {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: 'Not yet converted', data: data, backgroundColor: color }] },
+        options: baseChartOptions(false)
+      });
+      chartInstances.push(chart);
+    }
+
+    function showError(containerId, err) {
+      document.getElementById(containerId).innerHTML = '<div class="error-box">Failed to load data: ' + (err && err.message ? err.message : err) + '</div>';
+    }
+
+    // Initial load
+    loadSummary();
+    loadAccountActivity();
+  </script>
+</body>
+</html>
