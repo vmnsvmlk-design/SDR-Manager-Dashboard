@@ -111,6 +111,14 @@ var ENGAGEMENT_OWNER_PROP = 'hubspot_owner_id';
 var ENGAGEMENT_TIMESTAMP_PROP = 'hs_timestamp';
 var CALL_DIRECTION_PROP = 'hs_call_direction';
 var CALL_DIRECTION_OUTBOUND = 'OUTBOUND';
+// Most calls in this portal never get hs_call_direction populated at all - it depends on
+// which integration/dialer logged the call (e.g. the "Nooks" dialer sets it, the "Apollo
+// Integration" and others don't; portal-wide, only ~5% of calls have any value here at all).
+// Requiring an exact "OUTBOUND" match would silently drop the majority of real SDR call
+// activity. Since this team's calls are exclusively outbound prospecting, and true inbound
+// calls are rare and belong to non-SDR owners, we instead exclude only explicit INBOUND -
+// which (per HubSpot's search API) also matches records with no direction set at all.
+var CALL_DIRECTION_INBOUND = 'INBOUND';
 var EMAIL_DIRECTION_PROP = 'hs_email_direction';
 var EMAIL_DIRECTION_OUTGOING = 'EMAIL'; // HubSpot's internal value for "Outgoing"
 

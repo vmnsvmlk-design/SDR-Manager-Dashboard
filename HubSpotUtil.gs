@@ -247,3 +247,7 @@ function inFilter(propertyName, values) {
 function eqFilter(propertyName, value) {
   return { propertyName: propertyName, operator: 'EQ', value: value };
 }
+
+function neqFilter(propertyName, value) {
+  return { propertyName: propertyName, operator: 'NEQ', value: value };
+}

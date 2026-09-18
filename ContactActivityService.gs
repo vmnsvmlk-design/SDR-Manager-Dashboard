@@ -19,8 +19,11 @@ function buildContactActivityPayload() {
   var lookbackStart = new Date(now.getTime() - ENGAGEMENT_LOOKBACK_DAYS * 86400000);
   var sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
 
-  var calls = fetchEngagementsInWindow_('calls', CALL_DIRECTION_PROP, CALL_DIRECTION_OUTBOUND, ownerIds, lookbackStart, now);
-  var emails = fetchEngagementsInWindow_('emails', EMAIL_DIRECTION_PROP, EMAIL_DIRECTION_OUTGOING, ownerIds, lookbackStart, now);
+  // Calls: exclude explicit INBOUND rather than requiring an exact OUTBOUND match - see
+  // CALL_DIRECTION_INBOUND in Config.gs for why (most calls never get a direction logged at all).
+  var calls = fetchEngagementsInWindow_('calls', neqFilter(CALL_DIRECTION_PROP, CALL_DIRECTION_INBOUND), ownerIds, lookbackStart, now);
+  // Emails: hs_email_direction is reliably populated, so an exact match is fine here.
+  var emails = fetchEngagementsInWindow_('emails', eqFilter(EMAIL_DIRECTION_PROP, EMAIL_DIRECTION_OUTGOING), ownerIds, lookbackStart, now);
 
   var owners = {};
   ownerIds.forEach(function (id) { owners[id] = { ownerId: id, name: roster[id].name, region: roster[id].region }; });
@@ -36,9 +39,9 @@ function buildContactActivityPayload() {
   };
 }
 
-function fetchEngagementsInWindow_(objectType, directionProp, directionValue, ownerIds, start, end) {
+function fetchEngagementsInWindow_(objectType, directionFilter, ownerIds, start, end) {
   var filters = [
-    eqFilter(directionProp, directionValue),
+    directionFilter,
     inFilter(ENGAGEMENT_OWNER_PROP, ownerIds),
     dateFilter(ENGAGEMENT_TIMESTAMP_PROP, start, end)
   ];
