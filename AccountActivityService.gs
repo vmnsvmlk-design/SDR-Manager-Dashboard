@@ -20,7 +20,9 @@ function buildAccountActivityPayload() {
     COMPANY_ICP_CATEGORY_PROP,
     COMPANY_OWNER_PROP,
     COMPANY_LAST_ACTIVITY_PROP,
-    COMPANY_ALLOCATION_DATE_PROP
+    COMPANY_ALLOCATION_DATE_PROP,
+    COMPANY_G2_BUYER_INTENT_DETAILS_PROP,
+    COMPANY_G2_RELATED_PRODUCTS_DETAILS_PROP
   ];
 
   var companies = hubspotSearch('companies', [{
@@ -80,8 +82,13 @@ function buildAccountActivityPayload() {
       }
     }
 
+    var g2BuyerIntent = (props[COMPANY_G2_BUYER_INTENT_DETAILS_PROP] || '').trim();
+    var g2RelatedProducts = (props[COMPANY_G2_RELATED_PRODUCTS_DETAILS_PROP] || '').trim();
+    var hasG2BuyerIntent = g2BuyerIntent !== '' && g2BuyerIntent.toLowerCase().indexOf(G2_ZERO_PAGES_VIEWED_TEXT) === -1;
+    var hasG2RelatedProducts = g2RelatedProducts !== '';
+
     var isWarm = WARM_TAG_VALUES.indexOf(tag) !== -1;
-    var isThirdParty = THIRD_PARTY_TAG_VALUES.indexOf(tag) !== -1;
+    var isThirdParty = hasG2BuyerIntent || hasG2RelatedProducts;
     var isDisplacement = !!incumbentClm;
     var isEvent = EVENT_TAG_VALUES.indexOf(tag) !== -1;
 

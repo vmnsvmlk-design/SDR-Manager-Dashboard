@@ -64,8 +64,13 @@ var COMPANY_INCUMBENT_CLM_PROP = 'incumbent_clm';
 // (Settings > Properties > Company > TAGS- SDR Categories) if your team creates a
 // new dated option for the current fiscal year/quarter - this list will need the new value added.
 var WARM_TAG_VALUES = ['Warm Accounts- FY 25-26 Q2', 'Surging accounts'];
-var THIRD_PARTY_TAG_VALUES = ['3rd Party Signals'];
 var EVENT_TAG_VALUES = ['Event Allocations'];
+
+// "3rd party accounts" (Account Activity tab) are identified by G2 buyer-intent activity,
+// not a tag - see COMPANY_G2_*_PROP below.
+var COMPANY_G2_BUYER_INTENT_DETAILS_PROP = 'g2_buyer_intent_details';
+var COMPANY_G2_RELATED_PRODUCTS_DETAILS_PROP = 'g2_buyer_intent_related_products_details';
+var G2_ZERO_PAGES_VIEWED_TEXT = '0 pages viewed';
 
 // Exact stored VALUES for Lifecycle Stage (Custom) that count as "converted to a meeting"
 // (Marketing Qualified Account, Opportunity, Current Customer).
