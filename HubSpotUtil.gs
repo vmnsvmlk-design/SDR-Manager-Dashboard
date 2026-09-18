@@ -116,9 +116,12 @@ function getHubSpotOwnerByEmail(email) {
 }
 
 /**
- * Batch-resolves the first associated object id for each `fromObjectType` record, via the
- * CRM v4 associations API (chunked to HubSpot's 100-per-request batch limit). Used to find
- * which contact each call/email engagement belongs to.
+ * Batch-resolves the first associated object id for each `fromObjectType` record, using the
+ * CRM v3 batch/read endpoint's built-in `associations` parameter (chunked to HubSpot's
+ * 100-per-request batch limit). Used to find which contact each call/email engagement
+ * belongs to. This reuses the same well-established v3 batch/read endpoint as
+ * batchGetObjects() rather than the separate v4 associations API, whose exact response
+ * field naming turned out to be unreliable in testing.
  * Returns a map of { [fromId]: toId }. Records with no association are omitted.
  */
 function batchGetFirstAssociation(fromObjectType, toObjectType, fromIds) {
@@ -126,26 +129,26 @@ function batchGetFirstAssociation(fromObjectType, toObjectType, fromIds) {
   var chunkSize = 100;
   for (var i = 0; i < fromIds.length; i += chunkSize) {
     var chunk = fromIds.slice(i, i + chunkSize);
-    var url = HUBSPOT_BASE_URL + '/crm/v4/associations/' + fromObjectType + '/' + toObjectType + '/batch/read';
+    var url = HUBSPOT_BASE_URL + '/crm/v3/objects/' + fromObjectType + '/batch/read';
     var response = fetchWithRetry(url, {
       method: 'post',
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + getHubSpotToken() },
-      payload: JSON.stringify({ inputs: chunk.map(function (id) { return { id: String(id) }; }) }),
+      payload: JSON.stringify({
+        properties: [],
+        inputs: chunk.map(function (id) { return { id: String(id) }; }),
+        associations: [toObjectType]
+      }),
       muteHttpExceptions: true
     });
     if (response.getResponseCode() >= 300) {
-      throw new Error('HubSpot API error (' + response.getResponseCode() + ') on associations ' + fromObjectType + '->' + toObjectType + ': ' + response.getContentText());
+      throw new Error('HubSpot API error (' + response.getResponseCode() + ') on batch read+associations ' + fromObjectType + '->' + toObjectType + ': ' + response.getContentText());
     }
     var json = JSON.parse(response.getContentText());
-    // HubSpot's v4 batch associations "from" field naming has varied across API versions/docs
-    // (`from` vs `_from`) - check both defensively rather than betting on one silently
-    // breaking this into an all-empty map.
-    (json.results || []).forEach(function (result) {
-      var fromObj = result.from || result._from;
-      var fromId = fromObj ? fromObj.id : null;
-      var toList = result.to || [];
-      if (fromId && toList.length) map[fromId] = toList[0].toObjectId;
+    (json.results || []).forEach(function (r) {
+      var assoc = r.associations && r.associations[toObjectType];
+      var results = assoc && assoc.results;
+      if (results && results.length) map[r.id] = results[0].id;
     });
   }
   return map;
