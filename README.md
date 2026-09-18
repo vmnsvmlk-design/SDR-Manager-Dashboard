@@ -103,8 +103,11 @@ creating an entirely separate, additional URL.)
 
 - **Fiscal quarter** is computed live every time the page loads (FY starts 1-May), so
   Summary always reflects "now" with no manual date input.
-- **"Junk deal" exclusion** on the Meetings tile is mapped to the HubSpot dropdown value
-  `Junk Lead` (the closest existing option) — confirm this is what you meant.
+- **"Junk deal" exclusion** on the Meetings tile is mapped to the HubSpot checkbox value
+  `Junk Lead` (the closest existing option, confirmed against the live property). Since
+  "Disqualified/ Not Interested Reason Custom" is a multi-select checkbox field, a deal
+  is excluded if `Junk Lead` is any one of its selected reasons, not just when it's the
+  only one.
 - **"Warm Accounts"** tag value is currently stored in HubSpot as
   `Warm Accounts- FY 25-26 Q2`. If your team adds a new dated option for the current
   fiscal year (e.g. an FY 26-27 version), add it to `WARM_TAG_VALUES` in `Config.gs`.

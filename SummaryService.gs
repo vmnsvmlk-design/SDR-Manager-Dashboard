@@ -40,8 +40,12 @@ function buildSummaryPayload() {
   meetingDeals.forEach(function (d) {
     var owner = d.properties[DEAL_SDR_OWNER_PROP];
     if (!owner || !SDR_ROSTER[owner]) return;
-    var reason = (d.properties[DEAL_DISQUALIFIED_REASON_PROP] || '').trim().toLowerCase();
-    if (reason === JUNK_DISQUALIFIED_REASON.toLowerCase()) return;
+    // "Disqualified/ Not Interested Reason Custom" is a multi-checkbox property - HubSpot
+    // stores multiple selections as a single ";"-separated string (e.g. "Junk Lead;No Show").
+    var reasons = (d.properties[DEAL_DISQUALIFIED_REASON_PROP] || '')
+      .split(';')
+      .map(function (r) { return r.trim().toLowerCase(); });
+    if (reasons.indexOf(JUNK_DISQUALIFIED_REASON.toLowerCase()) !== -1) return;
     meetingCountByOwner[owner] = (meetingCountByOwner[owner] || 0) + 1;
   });
 
