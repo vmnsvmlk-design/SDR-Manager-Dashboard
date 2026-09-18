@@ -422,9 +422,10 @@
       document.getElementById(containerId).innerHTML = '<div class="error-box">Failed to load data: ' + (err && err.message ? err.message : err) + '</div>';
     }
 
-    // Initial load
+    // Initial load - staggered slightly so the two pages' HubSpot calls don't all
+    // fire in the same instant and trip HubSpot's per-second rate limit.
     loadSummary();
-    loadAccountActivity();
+    setTimeout(loadAccountActivity, 1500);
   </script>
 </body>
 </html>

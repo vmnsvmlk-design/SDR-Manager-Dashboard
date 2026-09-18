@@ -29,7 +29,7 @@ function hubspotSearch(objectType, filterGroups, properties, maxRecords) {
     };
     if (after) payload.after = after;
 
-    var response = UrlFetchApp.fetch(url, {
+    var response = fetchWithRetry(url, {
       method: 'post',
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + token },
@@ -48,6 +48,25 @@ function hubspotSearch(objectType, filterGroups, properties, maxRecords) {
   } while (after && results.length < maxRecords);
 
   return results;
+}
+
+/**
+ * UrlFetchApp.fetch with retry + exponential backoff on HubSpot's 429 rate-limit response.
+ * HubSpot enforces a short per-second call limit, which multiple dashboard tabs/searches
+ * can hit if they fire at nearly the same moment - this makes those transient errors
+ * self-heal instead of surfacing to the user.
+ */
+function fetchWithRetry(url, options, maxRetries) {
+  maxRetries = maxRetries || 5;
+  var attempt = 0;
+  while (true) {
+    var response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() !== 429 || attempt >= maxRetries) {
+      return response;
+    }
+    attempt++;
+    Utilities.sleep(500 * Math.pow(2, attempt)); // 1s, 2s, 4s, 8s, 16s
+  }
 }
 
 function dateFilter(propertyName, startDate, endDate) {
