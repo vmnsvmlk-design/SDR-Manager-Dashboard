@@ -39,13 +39,22 @@ function buildContactActivityPayload() {
   };
 }
 
+// One search per SDR rather than a single IN-filter search across all of them - HubSpot's
+// CRM Search API hard-caps any single search at 10,000 total matches (it will not paginate
+// past that, regardless of maxRecords), and the whole team's combined call/email volume in
+// the lookback window can exceed that. A single SDR's own volume comfortably stays under it,
+// so querying per-owner avoids silently losing whichever SDR HubSpot's default sort cuts off.
 function fetchEngagementsInWindow_(objectType, directionFilter, ownerIds, start, end) {
-  var filters = [
-    directionFilter,
-    inFilter(ENGAGEMENT_OWNER_PROP, ownerIds),
-    dateFilter(ENGAGEMENT_TIMESTAMP_PROP, start, end)
-  ];
-  return hubspotSearch(objectType, [{ filters: filters }], [ENGAGEMENT_OWNER_PROP, ENGAGEMENT_TIMESTAMP_PROP]);
+  var all = [];
+  ownerIds.forEach(function (ownerId) {
+    var filters = [
+      directionFilter,
+      eqFilter(ENGAGEMENT_OWNER_PROP, ownerId),
+      dateFilter(ENGAGEMENT_TIMESTAMP_PROP, start, end)
+    ];
+    all = all.concat(hubspotSearch(objectType, [{ filters: filters }], [ENGAGEMENT_OWNER_PROP, ENGAGEMENT_TIMESTAMP_PROP]));
+  });
+  return all;
 }
 
 function aggregateEngagements_(engagements, objectType, ownerIds, roster, sevenDaysAgo) {
