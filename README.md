@@ -1,117 +1,128 @@
-# SDR Manager Dashboard (Google Apps Script + HubSpot)
+# SDR Manager Dashboard
 
-Pulls live data from HubSpot and renders it as a web dashboard, hosted entirely on
-Google Apps Script (no server to run or keep alive — Apps Script executes your code
-on-demand each time someone opens the page).
+A Node.js + Express dashboard pulling live data from HubSpot: per-region SQL/meeting
+leaderboards, Account Activity, Contact Activity, MOFU Activity, and an editable SDR
+roster/targets tab. Runnable locally from a terminal, or deployed on a host like Railway.
 
-Tabs: **Summary**, **Account Activity**, **Contact Activity**, **MOFU Activity**, **Inputs**.
+This project previously ran on Google Apps Script; it has since been fully ported to a
+standalone Node server and no longer depends on Apps Script, `google.script.run`, or a
+Google Sheet for the roster.
+
+## How it's built
+
+- **Backend** (`server.js` + `lib/*.js`): holds your HubSpot token server-side and exposes
+  one `/api/*` endpoint per dashboard tab. Each `lib/*Service.js` file builds one tab's
+  payload straight from HubSpot's CRM Search, batch/read, and v4 associations APIs -
+  including the calls-direction fix (most calls never get `hs_call_direction` set, so the
+  code excludes only explicit `INBOUND` rather than requiring an exact `OUTBOUND` match),
+  the per-SDR query fix (HubSpot's Search API hard-caps any single search at 10,000 results,
+  so engagements are queried one SDR at a time), and the v4-associations fix (this portal's
+  `batch/read` `associations` parameter silently returns nothing; the dedicated v4 endpoint
+  works). HubSpot requests run concurrently via `Promise.all` rather than one at a time.
+- **Frontend** (`public/index.html`): the dashboard UI - same charts, colors, tooltips, and
+  drill-down modals throughout - calling this server's `/api/*` endpoints via `fetch()`.
+- **Roster/targets** (`lib/roster.js` + `data/roster.json`): the SDR roster and quarterly
+  targets, editable from the Inputs tab, stored in a plain local JSON file rather than a
+  database - simple, but see the Railway note below on persistence.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `Config.gs` | HubSpot property names, pipeline/stage IDs, default SDR roster seed |
-| `FiscalQuarter.gs` | Fiscal quarter math (FY starts 1-May), week bucketing |
-| `HubSpotUtil.gs` | HubSpot API calls: search, batch read, associations, retry/backoff |
-| `RosterService.gs` | SDR roster + quarterly targets, backed by a Google Sheet (editable via Inputs tab) |
-| `SummaryService.gs` | Builds the Summary tab data (leaderboards + region totals) |
-| `SdrPerformanceService.gs` | Builds the Summary tab's SDR Performance (Target vs Achieved) table |
-| `AccountActivityService.gs` | Builds the Account Activity tab data |
-| `ContactActivityService.gs` | Builds the Contact Activity tab data (calls/emails) |
-| `MofuService.gs` | Builds the MOFU Activity tab data |
-| `Code.gs` | Web app entry point (`doGet`) |
-| `Index.html` | The dashboard UI (sidebar, tiles, charts, drill-down modal, Inputs tab) |
-| `appsscript.json` | Project manifest |
+| `server.js` | Starts the web server, defines the `/api/*` endpoints |
+| `lib/config.js` | HubSpot property names, pipeline/stage IDs |
+| `lib/fiscalQuarter.js` | Fiscal quarter math (FY starts 1-May), week bucketing |
+| `lib/hubspot.js` | HubSpot API calls: search, batch read, v4 associations, retry/backoff |
+| `lib/roster.js` | Roster + quarterly targets, backed by `data/roster.json` |
+| `lib/summaryService.js` | Summary tab (leaderboards + region totals) |
+| `lib/sdrPerformanceService.js` | Summary tab's SDR Performance (Target vs Achieved) table |
+| `lib/accountActivityService.js` | Account Activity tab |
+| `lib/contactActivityService.js` | Contact Activity tab (calls/emails) |
+| `lib/mofuService.js` | MOFU Activity tab |
+| `data/roster.json` | Roster/targets data |
+| `public/index.html` | The dashboard UI (sidebar, tiles, charts, drill-down modal, Inputs tab) |
 
-## 1. Create the Apps Script project
+## 1. Prerequisites
 
-### Option A — Copy/paste manually (no extra tools needed)
-
-1. Go to [script.google.com](https://script.google.com) and click **New project**.
-2. Rename it (top left) to "SDR Manager Dashboard".
-3. For every `.gs` file above except `Code.gs`: click the **+** next to "Files" →
-   **Script**, name it exactly the same (without `.gs`), and paste the contents. For
-   `Code.gs`, just replace the contents of the default file the editor starts with.
-4. Click **+** → **HTML**, name it `Index`, and paste the contents of `Index.html`.
-5. Open **Project Settings** (gear icon) → check "Show `appsscript.json` manifest file in
-   editor" → open `appsscript.json` and replace its contents with this repo's.
-
-### Option B — Push with `clasp` (much faster for a 10-file project like this one)
+**Node.js version 18 or newer** (this uses Node's built-in `fetch`). Check what you have:
 
 ```bash
-npm install -g @google/clasp
-clasp login
-cd sdr-manager-dashboard
-clasp create --title "SDR Manager Dashboard" --type webapp
-clasp push
+node -v
 ```
 
-From then on, `clasp push` syncs every file in one shot — no copy/pasting file by file.
-Strongly recommended once the project has grown past a couple of files.
+If that fails or shows below `v18`, install Node from [nodejs.org](https://nodejs.org) (the
+"LTS" download is fine), then re-check.
 
-## 2. Add your HubSpot token (never paste it into code)
+## 2. Install
 
-1. In the Apps Script editor, open **Project Settings** (gear icon on the left).
-2. Scroll to **Script Properties** → **Add script property**.
-3. Property name: exactly `HUBSPOT_TOKEN` (case-sensitive, no spaces) → Value: your
-   HubSpot private app token → **Save script properties**.
+```bash
+git clone https://github.com/vmnsvmlk-design/SDR-Manager-Dashboard.git
+cd SDR-Manager-Dashboard
+npm install
+```
 
-## 3. Deploy as a Web App
+This downloads two small packages (`express`, `dotenv`) into a local `node_modules` folder.
 
-1. **Deploy** (top right) → **New deployment** → gear icon next to "Select type" →
-   **Web app**.
-2. Execute as: **Me**. Who has access: **Anyone within [your domain]** (or **Only
-   myself** to test solo first).
-3. **Deploy**, then **authorize** when Google prompts you — this build also uses Google
-   Sheets (for the Inputs tab's roster/targets storage), so you may see an additional
-   "See, edit, create and delete your Google Sheets" permission versus earlier versions.
-4. Copy the **Web app URL**. That's your one permanent link — nothing needs to stay
-   running between visits.
+## 3. Add your HubSpot token
 
-## 4. Updating later without breaking the link
+```bash
+cp .env.example .env
+```
 
-Save your changes (or `clasp push`), then **Deploy → Manage deployments** → edit
-(pencil icon) → Version: **New version** → **Deploy**. Same URL, updated code.
+Open `.env` in any text editor and paste your HubSpot private app token in place of the
+placeholder:
 
-## How the Inputs tab persists data
+```
+HUBSPOT_TOKEN=your-actual-token-here
+PORT=4000
+```
 
-The first time any tab loads, the app creates a Google Sheet called
-**"SDR Manager Dashboard - Roster & Targets"** in your Drive (its ID is cached in Script
-Properties) and seeds it from `DEFAULT_ROSTER` in `Config.gs`. From then on, that Sheet
-is the source of truth for who's on the team, their region, and their quarterly targets
-— edit it from the Inputs tab, or open the Sheet directly (there's a link on the Inputs
-tab). Adding a person on the Inputs tab looks them up in HubSpot by email, so you never
-need to know their internal owner ID.
+The token needs Read scope on Contacts, Companies, Deals, Calls, Emails, and Owners.
+**Never commit `.env`** - it's already in `.gitignore`.
 
-## Notes / assumptions baked into this build — please sanity-check these
+## 4. Run it locally
 
-- **Fiscal quarter** is computed live from the current date (FY starts 1-May) everywhere
-  it's used — Summary's current quarter, MOFU's quarter dropdown, the SDR Performance
-  table's 4 quarters.
-- **"Junk deal" exclusion** maps to the HubSpot checkbox value `Junk Lead`. That property
-  is multi-select, so a deal is excluded if `Junk Lead` is any one of its selected
-  reasons.
-- **"Warm Accounts"** tag is stored in HubSpot as `Warm Accounts- FY 25-26 Q2`. If your
-  team creates a new dated option for a future fiscal year, add it to `WARM_TAG_VALUES`
-  in `Config.gs`.
-- **"Debook" stage** (used in MOFU's Opportunities tile) could not be independently
-  confirmed to belong to the Sales Pipeline pipeline — no `hs_v2_date_entered_1422037570`
-  property exists on this portal, which normally would if it did. It's included per your
-  spec anyway; since every query is AND-ed with `pipeline = Sales Pipeline`, this is safe
-  either way (it just silently contributes zero if it turns out to live in a different
-  pipeline). Worth a quick check in HubSpot's pipeline editor if Opportunities looks off.
-- **Contact Activity's call/email history** is capped to the trailing
-  `ENGAGEMENT_LOOKBACK_DAYS` (120 days, in `Config.gs`) rather than truly "all time" —
-  pulling a sales team's entire call/email history on every page load would be very slow
-  and API-heavy. Raise that constant if you need a longer look-back.
-- **Call/email → contact matching**: a call or email only counts if the person who
-  logged it is the *same* person as that contact's own "SDR owner (Contact)" — this
-  matches your spec, but means a call made on a colleague's contact (e.g. covering for
-  someone) won't show up anywhere.
-- **"Deal Owner" / "Company Owner"** columns in drill-down tables resolve to a name via
-  HubSpot's full owner directory (cached a few hours) — if your token lacks the
-  `crm.objects.owners.read` scope this falls back to showing the raw internal ID.
-- The **SDR Performance** table's Target column shows **N/A** only when nothing has been
-  entered on the Inputs tab; Achieved always shows the real count, including a genuine
-  **0** (not N/A) if an SDR had no qualifying deals that quarter — flag if you'd rather
-  0 also read N/A.
+```bash
+npm start
+```
+
+You should see:
+
+```
+SDR Manager Dashboard (local) running at http://localhost:4000
+```
+
+Open **http://localhost:4000**. To stop it, `Ctrl+C` in that terminal. To run it again
+later, repeat `npm start` from this folder (no need to `npm install` again unless you delete
+`node_modules`).
+
+## 5. Deploying on Railway
+
+Since `package.json` and `server.js` sit at the repo root, Railway's build system detects
+this as a Node app automatically - no root directory override needed.
+
+1. In Railway, create a new service from this GitHub repo.
+2. In the service's **Variables** tab, add:
+   ```
+   HUBSPOT_TOKEN=your-actual-token-here
+   ```
+   Leave `PORT` unset - Railway injects its own, and `server.js` already reads
+   `process.env.PORT`.
+3. Deploy. Railway runs `npm install` then `npm start` automatically.
+
+**Persistence note:** `data/roster.json` is a plain file in the deployed container's
+filesystem, which Railway resets on every redeploy. Roster/target edits made through the
+Inputs tab will persist across page loads but will be **wiped on the next deploy** (a new
+push, a restart, a scale event). That's fine for a quick shared view, but if you want roster
+edits to survive redeploys, that data needs to move to a persistent Railway volume or a real
+database instead of a JSON file - ask if you want that wired up.
+
+## Troubleshooting
+
+- **"HUBSPOT_TOKEN is not set"** on every tab: `.env` is missing, not in the same folder as
+  `server.js`, or (on Railway) the `HUBSPOT_TOKEN` variable isn't set in the service.
+- **"HubSpot API error (403)..."**: your token is missing a required scope. In HubSpot:
+  Settings → Integrations → Private Apps → your app → Scopes, and confirm Read is checked
+  for Contacts, Companies, Deals, Calls, Emails, and Owners.
+- **Port already in use (local only)**: another process is using port 4000. Change
+  `PORT=4000` in `.env` to something else (e.g. `4001`) and re-run `npm start`.
