@@ -4,8 +4,8 @@ A Node.js + Express dashboard pulling live data from HubSpot, with three tabs:
 
 | Tab | What it shows |
 |---|---|
-| **Leaderboard** | Top 3 reps per region (NAM / EMEA / APAC) for the current fiscal year (from 1 May) on three podiums: Allbound + Outbound Opps Created, All Opps Created, Meetings Booked. Click a card title for the rep-wise comparison (split by quarter), a rep for their deals, or "View full ranking" for every rep plus all underlying deals. Below: the SDR Performance table (target vs achieved Allbound + Outbound opps per quarter). |
-| **Rep Overview** | Week on week (last 8 weeks), month on month (last 6 months) or quarter on quarter (last 3 fiscal quarters), for a region or a single SDR: contacts reached out / emailed / LinkedIn messaged / called, meetings booked, sales accepted, opportunities, Allbound + Outbound opportunities, and 3rd party / warm / event accounts with activity. A table at the bottom shows any of these metrics as SDR × period. |
+| **Leaderboard** | Top 3 reps per region (NAM / EMEA / APAC) for the full fiscal year (from 1 May) or a single fiscal quarter (picker in the top right) on three podiums: Allbound + Outbound Opps Created, All Opps Created, Meetings Booked. Click a card title for the rep-wise comparison (split by quarter), a rep for their deals, or "View full ranking" for every rep plus all underlying deals. Below: the SDR Performance table (target vs achieved Allbound + Outbound SQLs per quarter - always the full year, regardless of the picker). |
+| **Rep Overview** | Week on week (last 8 weeks), month on month (last 6 months) or quarter on quarter (last 3 fiscal quarters), for a region or a single SDR: contacts reached out / emailed / LinkedIn messaged / called, meetings booked, sales accepted, opportunities, Allbound + Outbound opportunities, revenue closed, and 3rd party / warm / event accounts with activity. A table at the bottom shows any of these metrics as SDR × period. |
 | **Actionables** | Current state: 3rd party / warm / event accounts not worked, accounts worked but not converted to meetings, and where deals are stuck (No Shows, Scheduled and Sales Accepted 30/60/90+ days). |
 
 Every number, bar and line is clickable and opens the underlying HubSpot records (with a filter
@@ -36,6 +36,9 @@ All HubSpot property names and stage IDs live in `lib/config.js`.
   the period, in Qualified to buy, Presentation done, Proposal Shared / Negotiations,
   Contracting, Closed won, Closed lost, Debook or Deal Desk Verified Closed Won.
   **Allbound + Outbound** additionally requires *Final Lead Source* Allbound or Pure Outbound.
+- **Revenue closed** - won deals (Closed won, Deal Desk Verified Closed Won) by *SDR Owner (Deal)*,
+  bucketed by *Close Date*, summing *Annual Subscription Fee $* (USD). Open deals are excluded
+  because that field holds forecast values on them.
 - **Not worked** - *Account worked after Allocation?* is not Yes, for companies where
   *SDR Owner (Company)* is the rep. **Not converted** - worked, but *Lifecycle Stage (Custom)* is
   not a deal/customer stage.

@@ -278,6 +278,9 @@
             <h2>Leaderboard</h2>
             <div class="subtitle" id="lb-subtitle">Loading fiscal year…</div>
           </div>
+          <div class="filters">
+            <select id="lb-period" class="filter-select" aria-label="Period"></select>
+          </div>
         </div>
         <div id="lb-content"><div class="loading"><span class="spinner"></span>Loading data from HubSpot…</div></div>
       </section>
@@ -364,6 +367,16 @@
         { key: 'finalLeadSource', label: 'Final Lead Source' },
         { key: 'dealOwner', label: 'Deal Owner' }
       ],
+      revenueDeal: [
+        { key: 'name', label: 'Deal Name', link: 'deal' },
+        { key: 'sdrOwner', label: 'SDR Owner' },
+        { key: 'region', label: 'Region' },
+        { key: 'date', label: 'Close Date', date: true },
+        { key: 'amount', label: 'Annual Subscription Fee $', num: true, get: function (r) { return r.amount === null || r.amount === undefined ? '' : formatMoney(r.amount, true); } },
+        { key: 'stage', label: 'Stage', get: function (r) { return STAGE_LABELS[r.stage] || r.stage; } },
+        { key: 'finalLeadSource', label: 'Final Lead Source' },
+        { key: 'dealOwner', label: 'Deal Owner' }
+      ],
       stuckDeal: [
         { key: 'name', label: 'Deal Name', link: 'deal' },
         { key: 'sdrOwner', label: 'SDR Owner' },
@@ -420,6 +433,15 @@
     function formatTime(iso) {
       var d = new Date(iso);
       return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    // $1.2M / $350K / $900; `exact` gives the full figure ($1,234,567).
+    function formatMoney(n, exact) {
+      n = Number(n) || 0;
+      if (exact) return '$' + Math.round(n).toLocaleString('en-US');
+      var a = Math.abs(n);
+      if (a >= 1e6) return '$' + (n / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace(/\.?0+$/, '') + 'M';
+      if (a >= 1e3) return '$' + (n / 1e3).toFixed(a >= 1e5 ? 0 : 1).replace(/\.0$/, '') + 'K';
+      return '$' + Math.round(n);
     }
     function pct(n, d) { return d ? Math.round((n / d) * 100) + '%' : '—'; }
     function errorHtml(err) { return '<div class="error-box">Failed to load data: ' + escapeHtml(err && err.message ? err.message : err) + '</div>'; }
@@ -511,8 +533,10 @@
     }
 
     // Bars per x label, stacked by series. series: [{ label, color, values[] }]; onPick(seriesIndex, xIndex)
-    function stackedBarChart(group, canvasId, xLabels, series, yTitle, onPick) {
+    function stackedBarChart(group, canvasId, xLabels, series, yTitle, onPick, fmt) {
       if (!xLabels.length) return emptyChart(canvasId);
+      var scales = axes(true, null, yTitle);
+      if (fmt) scales.y.ticks = { callback: function (v) { return fmt(v); } };
       return trackChart(group, new Chart(document.getElementById(canvasId), {
         type: 'bar',
         data: {
@@ -525,13 +549,17 @@
           responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { position: 'bottom', display: series.length > 1 },
-            tooltip: { callbacks: { footer: function (items) {
-              if (series.length < 2 || !items.length) return '';
-              var i = items[0].dataIndex;
-              return 'Total: ' + sum(series, function (s) { return s.values[i]; });
-            } } }
+            tooltip: { callbacks: {
+              label: fmt ? function (item) { return item.dataset.label + ': ' + fmt(item.raw, true); } : undefined,
+              footer: function (items) {
+                if (series.length < 2 || !items.length) return '';
+                var i = items[0].dataIndex;
+                var t = sum(series, function (s) { return s.values[i]; });
+                return 'Total: ' + (fmt ? fmt(t, true) : t);
+              }
+            } }
           },
-          scales: axes(true, null, yTitle),
+          scales: scales,
           onClick: function (evt, els) { if (els.length) onPick(els[0].datasetIndex, els[0].index); }
         }
       }));
@@ -598,6 +626,7 @@
     function openRecordsModal(title, records, type) {
       records = records || [];
       var sub = records.length + ' record' + (records.length === 1 ? '' : 's');
+      if (type === 'revenueDeal') sub += ' · ' + formatMoney(sum(records, function (r) { return r.amount || 0; }), true) + ' Annual Subscription Fee $';
       if (!records.length) return openModal(title, sub, '<div class="empty-box">No records match.</div>');
       openModal(title, sub,
         '<div class="modal-tools"><input type="search" placeholder="Filter these records…" aria-label="Filter records">' +
@@ -725,6 +754,22 @@
       }
     ];
     var lbData = null;
+    var lbPeriod = 0; // 0 = full fiscal year, otherwise the fiscal quarter number
+
+    document.getElementById('lb-period').addEventListener('change', function (e) {
+      lbPeriod = Number(e.target.value) || 0;
+      renderLeaderboard();
+    });
+
+    function lbPeriodLabel() {
+      if (!lbPeriod) return lbData.fyLabel + ' full fiscal year';
+      var q = lbData.quarters.filter(function (x) { return x.quarterNumber === lbPeriod; })[0];
+      return q ? q.label : lbData.fyLabel;
+    }
+    // Quarters shown in the comparison / ranking popups: the selected one, or every quarter so far.
+    function lbQuarters() {
+      return lbData.quarters.filter(function (q) { return lbPeriod ? q.quarterNumber === lbPeriod : q.quarterNumber <= lbData.currentQuarterNumber; });
+    }
 
     loaders.leaderboard = function (refresh) {
       document.getElementById('lb-content').innerHTML = loadingHtml();
@@ -741,7 +786,7 @@
 
     // Reps in `region` with at least one record, ranked by count (ties alphabetical).
     function rankRegion(metricKey, region) {
-      var counts = countBy(lbData.metrics[metricKey], function (r) { return r.ownerId; });
+      var counts = countBy(recordsFor(metricKey, null, lbPeriod || null), function (r) { return r.ownerId; });
       return ownersList(lbData.owners)
         .filter(function (o) { return o.region === region && counts[o.ownerId]; })
         .map(function (o) { return { owner: o, count: counts[o.ownerId] }; })
@@ -798,7 +843,7 @@
       return '<div class="podium-card" data-metric="' + metric.key + '" data-region="' + region + '">' +
         '<div class="podium-head"><div>' +
           '<button class="podium-title" data-action="compare" title="Open the ' + region + ' rep-wise comparison"><span class="hash">#</span> ' + escapeHtml(metric.title) + '</button> ' + infoIcon(metric.info) +
-          '<div class="podium-sub"><span class="region-pill">' + region + '</span>' + escapeHtml(lbData.fyLabel) + ' to date</div>' +
+          '<div class="podium-sub"><span class="region-pill">' + region + '</span>' + escapeHtml(lbPeriodLabel()) + '</div>' +
         '</div><button class="link-btn" data-action="ranking">View full ranking →</button></div>' +
         '<div class="podium">' +
           podiumColHtml(ranked[1], 2, total, uid + '-2') +
@@ -812,7 +857,13 @@
 
     function renderLeaderboard() {
       var d = lbData;
-      document.getElementById('lb-subtitle').textContent = d.fyLabel + ' fiscal year to date (from 1 May) · top 3 reps per region';
+      document.getElementById('lb-subtitle').textContent = lbPeriodLabel() + (lbPeriod ? '' : ' to date (from 1 May)') + ' · top 3 reps per region';
+      var sel = document.getElementById('lb-period');
+      sel.innerHTML = '<option value="0">' + escapeHtml(d.fyLabel) + ' full fiscal year</option>' +
+        d.quarters.filter(function (q) { return q.quarterNumber <= d.currentQuarterNumber; }).map(function (q) {
+          return '<option value="' + q.quarterNumber + '">' + escapeHtml(q.label) + (q.quarterNumber === d.currentQuarterNumber ? ' (current)' : '') + '</option>';
+        }).join('');
+      sel.value = String(lbPeriod);
 
       var html = '';
       LB_METRICS.forEach(function (m) {
@@ -821,8 +872,8 @@
         html += '<div class="podium-grid animate">' + REGION_ORDER.map(function (r) { return podiumCardHtml(m, r); }).join('') + '</div>';
       });
 
-      html += '<div class="section-heading"><h3>SDR Performance</h3>' + infoIcon('Achieved = Allbound + Outbound SQLs (same deals as the first leaderboard), counted in the fiscal quarter of their Became Qualified to Buy Date. Targets are hard-coded in data/team.js. Allbound + Outbound SQLs are the only metric with a target.') + '</div>';
-      html += '<div class="section-desc">Allbound + Outbound SQLs: target vs achieved and attainment, per quarter of ' + escapeHtml(d.fyLabel) + '. Click an achieved number to see the deals.</div>';
+      html += '<div class="section-heading" style="margin-top:44px"><h3>SDR Performance</h3>' + infoIcon('Achieved = Allbound + Outbound SQLs (same deals as the first leaderboard), counted in the fiscal quarter of their Became Qualified to Buy Date. Targets are hard-coded in data/team.js. Allbound + Outbound SQLs are the only metric with a target.') + '</div>';
+      html += '<div class="section-desc">Allbound + Outbound SQLs: target vs achieved and attainment, per quarter of ' + escapeHtml(d.fyLabel) + ' - always the full year, whichever period is picked above. Click an achieved number to see the deals.</div>';
       html += sdrPerformanceHtml();
 
       var root = document.getElementById('lb-content');
@@ -837,7 +888,7 @@
         card.querySelectorAll('.podium-col[data-owner]').forEach(function (col) {
           col.addEventListener('click', function () {
             var o = lbData.owners[col.getAttribute('data-owner')];
-            openRecordsModal(o.name + ' — ' + metric.title + ' (' + lbData.fyLabel + ')', recordsFor(metric.key, o.ownerId), 'deal');
+            openRecordsModal(o.name + ' — ' + metric.title + ' (' + lbPeriodLabel() + ')', recordsFor(metric.key, o.ownerId, lbPeriod || null), 'deal');
           });
         });
       });
@@ -867,8 +918,8 @@
     // Title click: every rep in the region, one bar each, split by fiscal quarter - same records as the podium.
     function openComparisonModal(metric, region) {
       var ranked = rankRegion(metric.key, region);
-      var quarters = lbData.quarters.filter(function (q) { return q.quarterNumber <= lbData.currentQuarterNumber; });
-      openModal(metric.title + ' — ' + region + ' rep-wise comparison', lbData.fyLabel + ' to date · ' + metric.desc,
+      var quarters = lbQuarters();
+      openModal(metric.title + ' — ' + region + ' rep-wise comparison', lbPeriodLabel() + ' · ' + metric.desc,
         '<div class="chart-box"><canvas id="cmp-canvas"></canvas></div><div class="hint">Click a bar segment to see the deals behind it.</div>',
         function (overlay, group) {
           var canvas = overlay.querySelector('#cmp-canvas');
@@ -889,8 +940,8 @@
     function openRankingModal(metric, region) {
       var ranked = rankRegion(metric.key, region);
       var total = sum(ranked, function (e) { return e.count; });
-      var quarters = lbData.quarters.filter(function (q) { return q.quarterNumber <= lbData.currentQuarterNumber; });
-      var regionRecords = lbData.metrics[metric.key].filter(function (r) { return lbData.owners[r.ownerId] && lbData.owners[r.ownerId].region === region; });
+      var quarters = lbQuarters();
+      var regionRecords = recordsFor(metric.key, null, lbPeriod || null).filter(function (r) { return lbData.owners[r.ownerId] && lbData.owners[r.ownerId].region === region; });
 
       var html = '<div class="table-scroll" style="max-height:none;margin-bottom:14px"><table class="data-table"><thead><tr><th>#</th><th>SDR</th>' +
         quarters.map(function (q) { return '<th class="num">' + escapeHtml(q.label) + '</th>'; }).join('') +
@@ -903,21 +954,22 @@
           }).join('') +
           '<td class="num clickable" data-o="' + e.owner.ownerId + '" data-q="">' + e.count + '</td><td class="num">' + pct(e.count, total) + '</td></tr>';
       });
-      if (!ranked.length) html += '<tr><td colspan="' + (quarters.length + 4) + '" class="na">No ' + metric.unit + ' yet this fiscal year.</td></tr>';
+      if (!ranked.length) html += '<tr><td colspan="' + (quarters.length + 4) + '" class="na">No ' + metric.unit + ' in ' + escapeHtml(lbPeriodLabel()) + '.</td></tr>';
       html += '</tbody></table></div>';
       html += '<button class="btn" data-all>Show all ' + regionRecords.length + ' underlying deals</button>';
 
-      openModal(metric.title + ' — ' + region + ' full ranking', lbData.fyLabel + ' to date · ' + metric.desc, html, function (overlay) {
+      openModal(metric.title + ' — ' + region + ' full ranking', lbPeriodLabel() + ' · ' + metric.desc, html, function (overlay) {
         overlay.querySelectorAll('td[data-o]').forEach(function (td) {
           if (td.classList.contains('zero')) return;
           td.addEventListener('click', function () {
             var o = lbData.owners[td.getAttribute('data-o')];
             var q = Number(td.getAttribute('data-q')) || null;
-            openRecordsModal(o.name + ' — ' + metric.title + (q ? ', Q' + q : '') + ' ' + lbData.fyLabel, recordsFor(metric.key, o.ownerId, q), 'deal');
+            q = q || lbPeriod || null;
+            openRecordsModal(o.name + ' — ' + metric.title + ', ' + (q ? 'Q' + q + ' ' + lbData.fyLabel : lbPeriodLabel()), recordsFor(metric.key, o.ownerId, q), 'deal');
           });
         });
         overlay.querySelector('[data-all]').addEventListener('click', function () {
-          openRecordsModal(region + ' — ' + metric.title + ' (' + lbData.fyLabel + ')', regionRecords, 'deal');
+          openRecordsModal(region + ' — ' + metric.title + ' (' + lbPeriodLabel() + ')', regionRecords, 'deal');
         });
       });
     }
@@ -1007,6 +1059,9 @@
       { key: 'allboundOpps', group: 'deals', type: 'deal', chart: 'bar', title: 'Allbound + Outbound opportunities created', unit: 'Opportunities',
         desc: 'Opportunities created with Final Lead Source Allbound or Pure Outbound.',
         info: 'Same as Opportunities created, limited to Final Lead Source Allbound or Pure Outbound.' },
+      { key: 'revenue', group: 'deals', type: 'revenueDeal', chart: 'bar', money: true, title: 'Revenue closed', unit: 'Annual Subscription Fee $',
+        desc: 'Annual Subscription Fee $ of won deals, by Close Date.',
+        info: 'Deals in the Sales pipeline where SDR Owner (Deal) is the rep and the deal is Closed won or Deal Desk Verified Closed Won, bucketed by Close Date, summing Annual Subscription Fee $ (USD). Open deals are left out because that field holds forecast values on them.' },
       { key: 'thirdParty', group: 'accounts', type: 'account', chart: 'line', title: '3rd party intent accounts with activity', unit: 'Accounts',
         desc: 'Accounts tagged 3rd Party Signals where the SDR reached out to a contact in the period.',
         info: 'Companies whose TAGS- SDR Categories is 3rd Party Signals, counted in each period in which the SDR reached out (call, email or LinkedIn) to one of their own contacts at that company. An account active in two periods counts in both.' },
@@ -1044,7 +1099,7 @@
 
     // Rows (contacts / accounts / deals) behind one metric, for one SDR and one period.
     function roRows(data, metric, ownerId, periodKey) {
-      var byOwner = data[metric.group][metric.key][ownerId] || {};
+      var byOwner = ((data[metric.group] || {})[metric.key] || {})[ownerId] || {};
       var rows = byOwner[periodKey] || [];
       var owner = data.owners[ownerId];
       if (metric.type === 'contact') {
@@ -1061,9 +1116,12 @@
       }
       return rows;
     }
+    // Count of rows behind a metric (or the summed $ for money metrics such as revenue).
     function roCount(data, metric, ownerId, periodKey) {
-      return ((data[metric.group][metric.key][ownerId] || {})[periodKey] || []).length;
+      var rows = (((data[metric.group] || {})[metric.key] || {})[ownerId] || {})[periodKey] || [];
+      return metric.money ? Math.round(sum(rows, function (r) { return r.amount || 0; })) : rows.length;
     }
+    function roFormat(metric, n, exact) { return metric.money ? formatMoney(n, exact) : n; }
 
     function renderRepOverview() {
       var data = roData[roState.granularity];
@@ -1086,7 +1144,7 @@
       }
       html += '<div class="section-heading"><h3>Outreach</h3></div><div class="section-desc">Contacts each SDR reached out to.</div>';
       html += '<div class="chart-grid">' + RO_METRICS.filter(function (m) { return m.group === 'activity'; }).map(card).join('') + '</div>';
-      html += '<div class="section-heading"><h3>Meetings &amp; opportunities</h3></div><div class="section-desc">Deals where the rep is SDR Owner (Deal).</div>';
+      html += '<div class="section-heading"><h3>Meetings &amp; Opportunities &amp; Revenue</h3></div><div class="section-desc">Deals where the rep is SDR Owner (Deal).</div>';
       html += '<div class="chart-grid">' + RO_METRICS.filter(function (m) { return m.group === 'deals'; }).map(card).join('') + '</div>';
       html += '<div class="section-heading"><h3>Accounts with activity</h3></div><div class="section-desc">Tagged accounts the SDR worked in each ' + periodWord + '.</div>';
       html += '<div class="chart-grid">' + RO_METRICS.filter(function (m) { return m.group === 'accounts'; }).map(card).join('') + '</div>';
@@ -1113,7 +1171,7 @@
           var ramp = PERIOD_RAMP.slice(PERIOD_RAMP.length - periods.length);
           stackedBarChart('ro', 'ro-chart-' + m.key, active.map(function (o) { return o.name; }), periods.map(function (p, i) {
             return { label: p.label, color: ramp[i], values: active.map(function (o) { return roCount(data, m, o.ownerId, p.key); }) };
-          }), m.unit, function (si, xi) { pick(active[xi], periods[si]); });
+          }), m.unit, function (si, xi) { pick(active[xi], periods[si]); }, m.money ? formatMoney : null);
         }
       });
 
@@ -1143,13 +1201,13 @@
       rows.forEach(function (r) {
         html += '<tr><td class="sticky-col">' + escapeHtml(r.owner.name) + '</td><td>' + escapeHtml(r.owner.region) + '</td>' +
           r.counts.map(function (n, i) {
-            return '<td class="num' + (n ? ' clickable' : ' zero') + '" data-o="' + r.owner.ownerId + '" data-p="' + i + '">' + n + '</td>';
-          }).join('') + '<td class="num"><strong>' + r.total + '</strong></td></tr>';
+            return '<td class="num' + (n ? ' clickable' : ' zero') + '" data-o="' + r.owner.ownerId + '" data-p="' + i + '">' + roFormat(m, n, true) + '</td>';
+          }).join('') + '<td class="num"><strong>' + roFormat(m, r.total, true) + '</strong></td></tr>';
       });
       if (rows.length > 1) {
         html += '<tr class="total-row"><td class="sticky-col">Total</td><td></td>' + periods.map(function (p, i) {
-          return '<td class="num">' + sum(rows, function (r) { return r.counts[i]; }) + '</td>';
-        }).join('') + '<td class="num">' + sum(rows, function (r) { return r.total; }) + '</td></tr>';
+          return '<td class="num">' + roFormat(m, sum(rows, function (r) { return r.counts[i]; }), true) + '</td>';
+        }).join('') + '<td class="num">' + roFormat(m, sum(rows, function (r) { return r.total; }), true) + '</td></tr>';
       }
       if (!rows.length) html += '<tr><td colspan="' + (periods.length + 3) + '" class="na">No data for this selection.</td></tr>';
       html += '</tbody></table></div>';
