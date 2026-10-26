@@ -821,8 +821,8 @@
         html += '<div class="podium-grid animate">' + REGION_ORDER.map(function (r) { return podiumCardHtml(m, r); }).join('') + '</div>';
       });
 
-      html += '<div class="section-heading"><h3>SDR Performance</h3>' + infoIcon('Achieved = Allbound + Outbound opportunities (same definition as the first leaderboard), counted in the fiscal quarter of their Became Qualified to Buy Date. Targets are hard-coded in data/team.js.') + '</div>';
-      html += '<div class="section-desc">Target vs achieved Allbound + Outbound opportunities, per quarter of ' + escapeHtml(d.fyLabel) + '. Click an achieved number to see the deals.</div>';
+      html += '<div class="section-heading"><h3>SDR Performance</h3>' + infoIcon('Achieved = Allbound + Outbound SQLs (same deals as the first leaderboard), counted in the fiscal quarter of their Became Qualified to Buy Date. Targets are hard-coded in data/team.js. Allbound + Outbound SQLs are the only metric with a target.') + '</div>';
+      html += '<div class="section-desc">Allbound + Outbound SQLs: target vs achieved and attainment, per quarter of ' + escapeHtml(d.fyLabel) + '. Click an achieved number to see the deals.</div>';
       html += sdrPerformanceHtml();
 
       var root = document.getElementById('lb-content');
@@ -942,9 +942,9 @@
       var html = '<div class="table-card"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-col">SDR</th>';
       [1, 2, 3, 4].forEach(function (qn) {
         var cur = qn === d.currentQuarterNumber ? ' current' : '';
-        html += '<th class="num' + cur + '">Q' + qn + ' Target</th><th class="num' + cur + '">Q' + qn + ' Achieved</th><th class="num' + cur + '">Q' + qn + ' %</th>';
+        html += '<th class="num' + cur + '">Q' + qn + ' Target</th><th class="num' + cur + '">Q' + qn + ' Achieved</th><th class="num' + cur + '">Q' + qn + ' Attainment</th>';
       });
-      html += '<th class="num">FY Target</th><th class="num">FY Achieved</th><th class="num">FY %</th></tr></thead><tbody>';
+      html += '<th class="num">FY Target</th><th class="num">FY Achieved</th><th class="num">FY Attainment</th></tr></thead><tbody>';
 
       REGION_ORDER.forEach(function (region) {
         var inRegion = rows.filter(function (o) { return o.region === region; });
