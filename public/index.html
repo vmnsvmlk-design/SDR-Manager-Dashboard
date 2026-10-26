@@ -1,274 +1,340 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>SDR Manager Dashboard (Local)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDR Manager Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #0F1419;
-      --card: #1A2029;
-      --card-alt: #202836;
-      --border: #2A3341;
-      --text: #E6E9EE;
-      --muted: #8B96A5;
-      --blue: #5B9BD5;
-      --teal: #4DB6A4;
-      --purple: #B99BD5;
-      --gold: #D9A85C;
-      --green: #5FB88F;
-      --notworked: #4A5568;
+      --bg: #0F141B;
+      --card: #1C2330;
+      --card-alt: #232C3B;
+      --card-hover: #26303F;
+      --border: #2C3647;
+      --border-strong: #4B6A93;
+      --text: #E8ECF2;
+      --muted: #8E99AB;
+      --faint: #5C6779;
+      --blue: #6FA8E8;
+      --teal: #5CC3AE;
+      --red: #E58080;
+      --amber: #E2B054;
+      --green: #6CC596;
+      --gold-1: #F0DC9A; --gold-2: #CFA83E; --gold-3: #8C6A1F;
+      --silver-1: #E6E9EE; --silver-2: #B4BBC6; --silver-3: #6E7682;
+      --bronze-1: #E3BC93; --bronze-2: #B98458; --bronze-3: #7A5233;
+      --radius: 14px;
     }
     * { box-sizing: border-box; }
+    html, body { margin: 0; }
     body {
-      margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
     }
+    button { font-family: inherit; }
     .app { display: flex; min-height: 100vh; }
-    .sidebar {
-      width: 220px;
-      flex-shrink: 0;
-      background: var(--card);
-      border-right: 1px solid var(--border);
-      padding: 24px 0;
-    }
-    .sidebar h1 { font-size: 15px; margin: 0 20px 24px; color: var(--text); }
-    .nav-item { padding: 12px 20px; cursor: pointer; color: var(--muted); font-size: 14px; border-left: 3px solid transparent; }
-    .nav-item.active { color: var(--text); border-left-color: var(--blue); background: rgba(91,155,213,0.08); }
-    .nav-item .soon { font-size: 10px; display: block; margin-top: 2px; }
 
-    .main { flex: 1; padding: 28px 32px; overflow-x: hidden; }
+    /* ---------- sidebar ---------- */
+    .sidebar {
+      width: 232px; flex-shrink: 0; background: #151B24; border-right: 1px solid var(--border);
+      padding: 24px 0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+    }
+    .brand { font-family: Fraunces, Georgia, serif; font-size: 19px; margin: 0 22px 28px; line-height: 1.25; }
+    .brand small { display: block; font-family: Inter, sans-serif; font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 22px; cursor: pointer; color: var(--muted);
+      font-size: 14px; font-weight: 500; border-left: 3px solid transparent; background: none; border-top: 0; border-right: 0; border-bottom: 0;
+      width: 100%; text-align: left;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(111,168,232,0.05); }
+    .nav-item.active { color: var(--text); border-left-color: var(--blue); background: rgba(111,168,232,0.10); }
+    .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
+    .sidebar-foot { margin-top: auto; padding: 0 22px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .sidebar-foot button { margin-top: 8px; }
+
+    .main { flex: 1; min-width: 0; padding: 28px 36px 60px; }
     .page { display: none; }
     .page.active { display: block; }
 
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-    .page-header h2 { margin: 0; font-size: 20px; }
-    .page-header .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+    .page-header h2 { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 28px; font-weight: 700; }
+    .page-header .subtitle { color: var(--muted); font-size: 13px; margin-top: 6px; }
 
-    .filter-toggle { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .toggle-group { display: flex; background: var(--card); border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
-    .toggle-group button { background: transparent; border: none; color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-    .toggle-group button.active { background: var(--blue); color: #0F1419; font-weight: 600; }
-    select.filter-select, input.filter-input {
-      background: var(--card); color: var(--text); border: 1px solid var(--border);
-      border-radius: 8px; padding: 7px 10px; font-size: 13px;
+    /* ---------- filters ---------- */
+    .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .seg { display: inline-flex; background: var(--card); border-radius: 10px; padding: 3px; border: 1px solid var(--border); }
+    .seg button { background: transparent; border: none; color: var(--muted); padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500; }
+    .seg button:hover { color: var(--text); }
+    .seg button.active { background: var(--blue); color: #0B1420; font-weight: 600; }
+    select.filter-select {
+      background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px 12px; font-size: 13px; min-width: 170px; font-family: inherit;
     }
-
-    .section-heading { margin: 32px 0 4px; font-size: 16px; }
-    .section-desc { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
-
-    .region-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    .region-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
-    .region-card h3 { margin: 0 0 16px; font-size: 15px; text-align: center; }
-
-    .trophy-row { display: flex; justify-content: center; align-items: flex-end; gap: 14px; margin-bottom: 20px; min-height: 150px; }
-    .trophy { text-align: center; width: 90px; }
-    .trophy .medal {
-      width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 8px;
-      display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700;
+    .btn {
+      background: var(--card-alt); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 500;
     }
-    .trophy.gold .medal { background: var(--gold); color: #2b2410; }
-    .trophy.silver .medal { background: #A9B4C0; color: #23282e; }
-    .trophy.bronze .medal { background: #C0895B; color: #2b1c10; }
-    .trophy .name { font-size: 12px; color: var(--text); min-height: 32px; }
-    .trophy .count { font-size: 18px; font-weight: 700; margin-top: 2px; }
-    .trophy.empty .medal { background: #232B36; }
-    .trophy.empty .name, .trophy.empty .count { color: #47505c; }
-    .trophy-row .place-1 { order: 2; }
-    .trophy-row .place-2 { order: 1; }
-    .trophy-row .place-3 { order: 3; }
+    .btn:hover { border-color: var(--border-strong); }
+    .link-btn { background: none; border: none; color: var(--blue); cursor: pointer; font-size: 14px; font-weight: 500; padding: 0; white-space: nowrap; }
+    .link-btn:hover { text-decoration: underline; }
 
-    .sub-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .tile { background: var(--card-alt); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; }
-    .tile .value { font-size: 24px; font-weight: 700; }
-    .tile .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .section-heading { display: flex; align-items: baseline; gap: 10px; margin: 34px 0 4px; }
+    .section-heading h3 { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 21px; }
+    .section-desc { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
 
-    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .kpi-row.kpi-row-2 { grid-template-columns: repeat(2, 1fr); }
-    .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; cursor: pointer; }
-    .kpi-card .value { font-size: 28px; font-weight: 700; }
-    .kpi-card .label { font-size: 13px; color: var(--muted); margin-top: 6px; }
-
-    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
-    .chart-card-header h4 { margin: 0; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-    .chart-desc { color: var(--muted); font-size: 11px; margin: 4px 0 14px; }
-    .chart-card canvas { max-height: 280px; cursor: pointer; }
-    .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .chart-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    .loading, .error-box, .empty-box { color: var(--muted); font-size: 13px; padding: 28px; text-align: center; }
+    .error-box { color: var(--red); }
+    .warning-box { background: rgba(226,176,84,0.08); border: 1px solid rgba(226,176,84,0.35); color: var(--amber); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .info-icon {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 15px; height: 15px; border-radius: 50%; background: var(--card-alt); color: var(--muted);
-      font-size: 10px; font-style: italic; font-weight: 700; cursor: help; position: relative;
-      border: 1px solid var(--border); flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%;
+      border: 1.5px solid var(--blue); color: var(--blue); font-family: Georgia, serif; font-size: 11px; font-style: italic; font-weight: 700;
+      cursor: help; position: relative; flex-shrink: 0; vertical-align: middle;
     }
     .info-icon:hover::after {
-      content: attr(data-tooltip);
-      position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
-      background: #0b0e12; color: var(--text); border: 1px solid var(--border);
-      padding: 8px 10px; border-radius: 8px; width: 240px; font-size: 11px; font-weight: 400;
-      white-space: normal; z-index: 60; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .info-icon:hover::before {
-      content: ''; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
-      border: 5px solid transparent; border-top-color: #0b0e12; z-index: 60;
+      content: attr(data-tooltip); position: absolute; top: 135%; left: 50%; transform: translateX(-50%);
+      background: #0A0E13; color: var(--text); border: 1px solid var(--border); padding: 9px 11px; border-radius: 8px;
+      width: 280px; font-family: Inter, sans-serif; font-size: 12px; font-style: normal; font-weight: 400; line-height: 1.45;
+      white-space: normal; z-index: 60; text-align: left; box-shadow: 0 6px 18px rgba(0,0,0,0.45);
     }
 
-    .loading, .error-box { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
-    .error-box { color: #E07A7A; }
+    /* ---------- leaderboard podium ---------- */
+    .podium-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .podium-card {
+      background: linear-gradient(180deg, #1F2734 0%, #1B222D 100%); border: 1px solid var(--border-strong);
+      border-radius: 18px; padding: 22px 22px 16px; display: flex; flex-direction: column;
+    }
+    .podium-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .podium-title {
+      background: none; border: none; color: var(--text); padding: 0; cursor: pointer; text-align: left;
+      font-family: Fraunces, Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2;
+      text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; transition: text-decoration-color .15s, color .15s;
+    }
+    .podium-title:hover { text-decoration-color: currentColor; }
+    .podium-title:hover { color: var(--blue); }
+    .podium-title .hash { color: var(--muted); font-weight: 600; margin-right: 2px; }
+    .podium-sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .region-pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--teal); background: rgba(92,195,174,0.12); border-radius: 999px; padding: 2px 9px; margin-right: 6px; }
+    .podium-head .link-btn { font-size: 13px; margin-top: 4px; }
 
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
-    .modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; max-width: 480px; width: 90%; max-height: 78vh; overflow-y: auto; }
-    .modal-box-wide { max-width: 920px; }
-    .modal-box h3 { margin: 0 0 4px; font-size: 16px; padding-right: 20px; }
-    .modal-close { float: right; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; margin-top: -4px; }
-    .modal-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
-    .modal-list { list-style: none; margin: 0; padding: 0; }
-    .modal-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .modal-list li:last-child { border-bottom: none; }
-    .modal-list li a { color: var(--blue); text-decoration: none; }
-    .modal-list li a:hover { text-decoration: underline; }
-    .modal-empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
-    .modal-table-wrap { overflow-x: auto; }
-    .modal-table { border-collapse: collapse; width: 100%; font-size: 12px; }
-    .modal-table th, .modal-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-    .modal-table th { color: var(--muted); font-weight: 600; }
-    .modal-table a { color: var(--blue); text-decoration: none; }
-    .modal-table a:hover { text-decoration: underline; }
+    .podium { display: grid; grid-template-columns: 1fr 1.08fr 1fr; gap: 10px; align-items: end; margin-top: 18px; border-bottom: 1px solid var(--border); }
+    .podium-col { display: flex; flex-direction: column; align-items: center; min-width: 0; cursor: pointer; }
+    .podium-col.empty { cursor: default; }
+    .podium-person { text-align: center; padding: 0 2px 10px; min-width: 0; width: 100%; }
+    .podium-person svg { width: 46px; height: 54px; display: block; margin: 0 auto 8px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
+    .place-1 .podium-person svg { width: 54px; height: 64px; }
+    .podium-name { font-weight: 600; font-size: 15px; line-height: 1.25; min-height: 2.5em; display: flex; align-items: flex-end; justify-content: center; overflow-wrap: anywhere; }
+    .podium-count { font-size: 27px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .podium-block {
+      width: 100%; border-radius: 10px 10px 0 0; text-align: center; color: #1A1A1A; padding-top: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+    }
+    .podium-block .rank { font-size: 30px; font-weight: 800; line-height: 1; }
+    .podium-block .tier { font-size: 11px; font-weight: 700; letter-spacing: .22em; margin-top: 6px; opacity: .8; }
+    .podium-block .share { font-size: 13px; font-weight: 600; margin-top: 6px; opacity: .85; }
+    .place-1 .podium-block { height: 150px; background: linear-gradient(180deg, var(--gold-1), var(--gold-2) 55%, var(--gold-3)); }
+    .place-2 .podium-block { height: 118px; background: linear-gradient(180deg, var(--silver-1), var(--silver-2) 55%, var(--silver-3)); }
+    .place-3 .podium-block { height: 96px; background: linear-gradient(180deg, var(--bronze-1), var(--bronze-2) 55%, var(--bronze-3)); }
+    .podium-col.empty .podium-block { background: #262F3D; color: var(--faint); box-shadow: none; }
+    .podium-col.empty .podium-name, .podium-col.empty .podium-count { color: var(--faint); }
+    .podium-col:not(.empty):hover .podium-name { color: var(--blue); }
+    .podium-foot { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); padding-top: 12px; }
+    .podium-foot .total { color: var(--teal); font-weight: 500; }
 
-    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-    .data-table th, .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; }
-    .data-table th { color: var(--muted); font-weight: 600; font-size: 12px; }
-    .data-table tbody tr:last-child td { border-bottom: none; }
-    .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    /* rise-up animation: blocks grow from the floor, then the trophies and names drop in */
+    .animate .podium-block { transform-origin: bottom; animation: rise .75s cubic-bezier(.2,.8,.2,1) both; }
+    .animate .podium-person { animation: dropIn .55s cubic-bezier(.2,.8,.2,1) both; }
+    .animate .place-3 .podium-block { animation-delay: .05s; }
+    .animate .place-2 .podium-block { animation-delay: .2s; }
+    .animate .place-1 .podium-block { animation-delay: .35s; }
+    .animate .place-3 .podium-person { animation-delay: .55s; }
+    .animate .place-2 .podium-person { animation-delay: .7s; }
+    .animate .place-1 .podium-person { animation-delay: .85s; }
+    .animate .place-1 .podium-person svg { animation: shine 1.6s ease-in-out 1.4s both; }
+    @keyframes rise { from { transform: scaleY(0); opacity: .4; } to { transform: scaleY(1); opacity: 1; } }
+    @keyframes dropIn { from { transform: translateY(-18px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes shine { 0%,100% { transform: none; } 50% { transform: scale(1.08) rotate(-4deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .animate .podium-block, .animate .podium-person, .animate .place-1 .podium-person svg { animation: none; }
+    }
+
+    /* ---------- cards, charts ---------- */
+    .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .chart-grid.cols-1 { grid-template-columns: minmax(0, 1fr); }
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
+    .chart-card h4 { margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .chart-desc { color: var(--muted); font-size: 12px; margin: 5px 0 14px; }
+    .chart-box { position: relative; height: 340px; }
+    .chart-box.short { height: 280px; }
+    .chart-box canvas { cursor: pointer; }
+    .chart-empty { height: 100%; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 13px; border: 1px dashed var(--border); border-radius: 10px; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 8px; }
+    .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; cursor: pointer; text-align: left; color: inherit; }
+    .kpi-card:hover { border-color: var(--border-strong); }
+    .kpi-card .value { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .kpi-card .label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .kpi-card.alert .value { color: var(--amber); }
+
+    /* ---------- tables ---------- */
+    .table-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .table-scroll { overflow: auto; max-height: 560px; }
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+    .data-table th, .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    .data-table thead th { position: sticky; top: 0; background: #1F2735; color: var(--muted); font-weight: 600; font-size: 12px; z-index: 2; }
+    .data-table th.num, .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table .sticky-col { position: sticky; left: 0; background: var(--card); z-index: 1; }
+    .data-table thead .sticky-col { z-index: 3; background: #1F2735; }
+    .data-table tbody tr:hover td { background: var(--card-hover); }
     .data-table td.clickable { cursor: pointer; color: var(--blue); }
     .data-table td.clickable:hover { text-decoration: underline; }
-    .na { color: var(--muted); }
+    .data-table td.zero { color: var(--faint); }
+    .data-table tr.region-row td { background: #18202B; color: var(--teal); font-weight: 700; font-size: 11px; letter-spacing: .1em; }
+    .data-table tr.total-row td { font-weight: 700; background: #1F2735; }
+    .data-table th.current { color: var(--text); }
+    .na { color: var(--faint); }
+    .att { font-weight: 600; }
+    .att.good { color: var(--green); }
+    .att.mid { color: var(--amber); }
+    .att.low { color: var(--red); }
 
-    .inputs-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
-    .inputs-panel h3 { margin: 0 0 4px; font-size: 15px; }
-    .inputs-panel .section-desc { margin-bottom: 16px; }
-    .inputs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .inputs-table th, .inputs-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
-    .inputs-table th { color: var(--muted); font-weight: 600; font-size: 12px; }
-    .inputs-table input[type="text"], .inputs-table input[type="number"] {
-      background: var(--card-alt); color: var(--text); border: 1px solid var(--border);
-      border-radius: 6px; padding: 5px 8px; font-size: 13px; width: 100%; max-width: 140px;
+    .metric-tabs { display: flex; gap: 6px; padding: 12px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .metric-tabs button { flex-shrink: 0; background: var(--card-alt); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 500; cursor: pointer; }
+    .metric-tabs button:hover { color: var(--text); }
+    .metric-tabs button.active { background: rgba(111,168,232,0.16); border-color: var(--blue); color: var(--text); }
+
+    /* ---------- modal ---------- */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(5,8,12,0.66); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
+    .modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; width: min(1040px, 100%); max-height: 86vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .modal-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
+    .modal-head h3 { margin: 0; font-size: 18px; font-family: Fraunces, Georgia, serif; }
+    .modal-sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 26px; line-height: 1; padding: 0 4px; }
+    .modal-close:hover { color: var(--text); }
+    .modal-tools { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .modal-tools input { background: var(--card-alt); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; min-width: 240px; font-family: inherit; }
+    .modal-box .table-scroll { max-height: 58vh; border: 1px solid var(--border); border-radius: 10px; }
+    .modal-box a { color: var(--blue); text-decoration: none; }
+    .modal-box a:hover { text-decoration: underline; }
+    .hint { color: var(--faint); font-size: 12px; margin-top: 10px; }
+
+    @media (max-width: 1280px) {
+      .podium-grid { grid-template-columns: 1fr; }
+      .podium-card { max-width: 760px; }
     }
-    .inputs-table .remove-btn { color: #E07A7A; cursor: pointer; font-size: 12px; background: none; border: none; }
-    .add-row-form { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
-    .add-row-form input { background: var(--card-alt); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; }
-    .btn-primary { background: var(--blue); color: #0F1419; border: none; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
-    .save-hint { font-size: 11px; color: var(--muted); margin-left: 6px; }
-    .sheet-link { font-size: 12px; }
-    .sheet-link a { color: var(--blue); }
+    @media (max-width: 980px) {
+      .chart-grid { grid-template-columns: 1fr; }
+      .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .app { flex-direction: column; }
+      .sidebar { width: auto; height: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; gap: 4px; }
+      .brand { margin: 0 12px 0 0; font-size: 16px; }
+      .brand small { display: none; }
+      .nav-item { width: auto; border-left: 0; border-bottom: 2px solid transparent; padding: 8px 10px; }
+      .nav-item.active { border-bottom-color: var(--blue); }
+      .sidebar-foot { display: none; }
+      .main { padding: 20px 16px 48px; }
+      .podium-title { font-size: 18px; }
+    }
   </style>
 </head>
 <body>
   <div class="app">
-    <div class="sidebar">
-      <h1>SDR Manager Dashboard</h1>
-      <div class="nav-item active" data-page="summary">Summary</div>
-      <div class="nav-item" data-page="account-activity">Account Activity</div>
-      <div class="nav-item" data-page="contact-activity">Contact Activity</div>
-      <div class="nav-item" data-page="mofu-activity">MOFU Activity</div>
-      <div class="nav-item" data-page="inputs">Inputs</div>
-    </div>
+    <nav class="sidebar">
+      <div class="brand">SDR Manager<small>Dashboard</small></div>
+      <button class="nav-item" data-page="leaderboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+        Leaderboard
+      </button>
+      <button class="nav-item" data-page="rep-overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+        Rep Overview
+      </button>
+      <button class="nav-item" data-page="actionables">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Actionables
+      </button>
+      <div class="sidebar-foot">
+        <div id="data-as-of">Live from HubSpot</div>
+        <button class="btn" id="refresh-btn" title="Pull fresh data from HubSpot (data is otherwise cached for 15 minutes)">↻ Refresh data</button>
+      </div>
+    </nav>
 
-    <div class="main">
-      <!-- SUMMARY -->
-      <div class="page active" id="page-summary">
+    <main class="main">
+      <!-- LEADERBOARD -->
+      <section class="page" id="page-leaderboard">
         <div class="page-header">
           <div>
-            <h2>Summary</h2>
-            <div class="subtitle" id="summary-quarter-label">Loading current fiscal quarter…</div>
+            <h2>Leaderboard</h2>
+            <div class="subtitle" id="lb-subtitle">Loading fiscal year…</div>
           </div>
         </div>
-        <div id="summary-content"><div class="loading">Loading data from HubSpot…</div></div>
+        <div id="lb-content"><div class="loading"><span class="spinner"></span>Loading data from HubSpot…</div></div>
+      </section>
 
-        <div class="section-heading">SDR Performance</div>
-        <div class="section-desc" id="sdr-performance-desc">Target vs Achieved SQLs for each quarter of the current fiscal year.</div>
-        <div id="sdr-performance-content"><div class="loading">Loading…</div></div>
-      </div>
-
-      <!-- ACCOUNT ACTIVITY -->
-      <div class="page" id="page-account-activity">
+      <!-- REP OVERVIEW -->
+      <section class="page" id="page-rep-overview">
         <div class="page-header">
           <div>
-            <h2>Account Activity</h2>
-            <div class="subtitle">All accounts currently allocated, regardless of allocation date</div>
+            <h2>Rep Overview</h2>
+            <div class="subtitle" id="ro-subtitle">Input and output metrics per SDR over time</div>
           </div>
-          <div class="filter-toggle">
-            <div class="toggle-group">
-              <button id="aa-mode-region" class="active">Region</button>
-              <button id="aa-mode-sdr">SDR Owner</button>
+          <div class="filters">
+            <div class="seg" id="ro-granularity">
+              <button data-value="week" class="active">Week on week</button>
+              <button data-value="month">Month on month</button>
+              <button data-value="quarter">Quarter on quarter</button>
             </div>
-            <select id="aa-region-select" class="filter-select"></select>
-            <select id="aa-sdr-select" class="filter-select" style="display:none;"></select>
-          </div>
-        </div>
-        <div id="account-activity-content"><div class="loading">Loading data from HubSpot…</div></div>
-      </div>
-
-      <!-- CONTACT ACTIVITY -->
-      <div class="page" id="page-contact-activity">
-        <div class="page-header">
-          <div>
-            <h2>Contact Activity</h2>
-            <div class="subtitle" id="ca-subtitle">Loading…</div>
-          </div>
-          <div class="filter-toggle">
-            <div class="toggle-group">
-              <button id="ca-mode-region" class="active">Region</button>
-              <button id="ca-mode-sdr">SDR Owner</button>
+            <div class="seg" id="ro-mode">
+              <button data-value="region" class="active">Region</button>
+              <button data-value="sdr">SDR Name</button>
             </div>
-            <select id="ca-region-select" class="filter-select"></select>
-            <select id="ca-sdr-select" class="filter-select" style="display:none;"></select>
+            <select id="ro-region" class="filter-select" aria-label="Region"></select>
+            <select id="ro-sdr" class="filter-select" aria-label="SDR" hidden></select>
           </div>
         </div>
-        <div id="contact-activity-content"><div class="loading">Loading data from HubSpot…</div></div>
-      </div>
+        <div id="ro-content"><div class="loading"><span class="spinner"></span>Loading data from HubSpot…</div></div>
+      </section>
 
-      <!-- MOFU ACTIVITY -->
-      <div class="page" id="page-mofu-activity">
+      <!-- ACTIONABLES -->
+      <section class="page" id="page-actionables">
         <div class="page-header">
           <div>
-            <h2>MOFU Activity</h2>
-            <div class="subtitle" id="mofu-subtitle">Loading…</div>
+            <h2>Actionables</h2>
+            <div class="subtitle">What needs attention right now - current state, not date filtered</div>
           </div>
-          <div class="filter-toggle">
-            <select id="mofu-quarter-select" class="filter-select"></select>
-            <div class="toggle-group">
-              <button id="mofu-mode-region" class="active">Region</button>
-              <button id="mofu-mode-sdr">SDR Owner</button>
+          <div class="filters">
+            <div class="seg" id="ac-mode">
+              <button data-value="region" class="active">Region</button>
+              <button data-value="sdr">SDR Name</button>
             </div>
-            <select id="mofu-region-select" class="filter-select"></select>
-            <select id="mofu-sdr-select" class="filter-select" style="display:none;"></select>
+            <select id="ac-region" class="filter-select" aria-label="Region"></select>
+            <select id="ac-sdr" class="filter-select" aria-label="SDR" hidden></select>
           </div>
         </div>
-        <div id="mofu-activity-content"><div class="loading">Loading data from HubSpot…</div></div>
-      </div>
-
-      <!-- INPUTS -->
-      <div class="page" id="page-inputs">
-        <div class="page-header">
-          <div>
-            <h2>Inputs</h2>
-            <div class="subtitle">SDR region mapping and quarterly targets - edits save immediately to data/roster.json</div>
-          </div>
-        </div>
-        <div id="inputs-content"><div class="loading">Loading…</div></div>
-      </div>
-    </div>
+        <div id="ac-content"><div class="loading"><span class="spinner"></span>Loading data from HubSpot…</div></div>
+      </section>
+    </main>
   </div>
 
   <script>
-    // ============================= shared constants =============================
-    var PALETTE = ['#5B9BD5', '#4DB6A4', '#B99BD5', '#D9A85C', '#5FB88F', '#E07A7A', '#8AA6C2', '#C9A0DC', '#7FB3D5', '#F2B880', '#95A5A6', '#6FCF97', '#F2994A', '#BB6BD9', '#56CCF2', '#EB5757'];
-    var WORKED_COLOR = '#4DB6A4';
-    var NOT_WORKED_COLOR = '#4A5568';
+    // ============================= constants =============================
+    var REGION_ORDER = ['NAM', 'EMEA', 'APAC'];
+    // One stable colour per SDR (by roster position) so a rep keeps their colour across charts.
+    var SDR_COLORS = ['#6FA8E8', '#5CC3AE', '#E2B054', '#C792EA', '#E58080', '#7FD1E8', '#A3D977', '#F29E6D', '#9AA8F5', '#E88BC4', '#D4C46A', '#6CC596', '#B39DDB', '#F4C38B'];
+    // Sequential ramp for time periods (oldest = lightest) in stacked bars.
+    var PERIOD_RAMP = ['#D6E6F8', '#B7D3F2', '#98C0EC', '#79ADE6', '#5A99DE', '#3F84D0', '#2C6DB5', '#1F5694'];
+    var QUARTER_COLORS = ['#98C0EC', '#5A99DE', '#2C6DB5', '#1F4F86'];
 
     var STAGE_LABELS = {
       'qualifiedtobuy': 'Qualified to buy',
@@ -284,771 +350,931 @@
       '1422037570': 'Debook',
       '1365874062': 'Deal Desk Verified Closed Won'
     };
+    var CHANNEL_LABELS = { called: 'Call', emailed: 'Email', linkedin: 'LinkedIn' };
 
+    // Drill-down table columns per record type. `get` reads a value off a record.
     var COLUMN_DEFS = {
       deal: [
-        { key: 'name', label: 'Deal Name', link: true },
+        { key: 'name', label: 'Deal Name', link: 'deal' },
+        { key: 'sdrOwner', label: 'SDR Owner' },
+        { key: 'region', label: 'Region' },
+        { key: 'date', label: 'Date', date: true },
+        { key: 'stage', label: 'Stage', get: function (r) { return STAGE_LABELS[r.stage] || r.stage; } },
         { key: 'leadSource', label: 'Lead Source' },
         { key: 'finalLeadSource', label: 'Final Lead Source' },
+        { key: 'dealOwner', label: 'Deal Owner' }
+      ],
+      stuckDeal: [
+        { key: 'name', label: 'Deal Name', link: 'deal' },
         { key: 'sdrOwner', label: 'SDR Owner' },
-        { key: 'dealOwner', label: 'Deal Owner' },
         { key: 'region', label: 'Region' },
-        { key: 'stage', label: 'Stage', stage: true }
+        { key: 'daysInStage', label: 'Days in stage', num: true },
+        { key: 'stage', label: 'Stage', get: function (r) { return STAGE_LABELS[r.stage] || r.stage; } },
+        { key: 'leadSource', label: 'Lead Source' },
+        { key: 'dealOwner', label: 'Deal Owner' }
       ],
       company: [
-        { key: 'name', label: 'Company Name', link: true },
-        { key: 'icpCategory', label: 'ICP Category 2.0' },
-        { key: 'lifecycleStage', label: 'Lifecycle Stage (Custom)' },
-        { key: 'domain', label: 'Company Domain' },
+        { key: 'name', label: 'Company Name', link: 'company' },
+        { key: 'domain', label: 'Domain' },
         { key: 'sdrOwner', label: 'SDR Owner' },
-        { key: 'companyOwner', label: 'Company Owner' },
-        { key: 'lastActivityDate', label: 'Last Activity Date', date: true },
+        { key: 'tagCategory', label: 'Tags - SDR Categories' },
+        { key: 'lifecycleStage', label: 'Lifecycle Stage (Custom)' },
+        { key: 'icpCategory', label: 'ICP Category 2.0' },
         { key: 'allocationDate', label: 'Allocation Date', date: true },
-        { key: 'tagCategory', label: 'Tags - SDR Categories' }
+        { key: 'lastActivityDate', label: 'Last Activity', date: true },
+        { key: 'companyOwner', label: 'Company Owner' }
       ],
       contact: [
-        { key: 'name', label: 'Name', link: true },
-        { key: 'firstName', label: 'First Name' },
-        { key: 'lastName', label: 'Last Name' },
+        { key: 'name', label: 'Contact', link: 'contact' },
         { key: 'email', label: 'Email' },
-        { key: 'companyDomain', label: 'Company Domain' },
-        { key: 'lastTouch', label: 'Last Touch', date: true }
+        { key: 'companyName', label: 'Company' },
+        { key: 'sdrOwner', label: 'SDR' },
+        { key: 'channels', label: 'Outreach', get: function (r) { return (r.channels || []).map(function (c) { return CHANNEL_LABELS[c] || c; }).join(', '); } },
+        { key: 'lastTouch', label: 'Last touch in period', date: true }
+      ],
+      account: [
+        { key: 'name', label: 'Company', link: 'company' },
+        { key: 'domain', label: 'Domain' },
+        { key: 'tagCategory', label: 'Tags - SDR Categories' },
+        { key: 'sdrOwner', label: 'SDR' },
+        { key: 'contacts', label: 'Contacts touched', num: true },
+        { key: 'lastTouch', label: 'Last touch in period', date: true }
       ]
     };
-    var RECORD_URL_PATH = { deal: 'deal', company: 'company', contact: 'contact' };
 
-    var chartInstances = [];
-    var currentPortalId = null;
-    function notePortalId(id) { if (id) currentPortalId = id; }
+    var portalId = null;
+    function notePortalId(id) { if (id) portalId = id; }
 
-    // ============================= local API helper =============================
-    // Stands in for google.script.run.withSuccessHandler(...).withFailureHandler(...).fn(args) -
-    // calls this local server's /api/* endpoints instead, same success/failure shape.
-    function apiFetch(url, options) {
-      return fetch(url, options).then(function (r) {
+    // ============================= generic helpers =============================
+    function escapeHtml(s) {
+      return String(s === undefined || s === null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function sum(list, fn) { return list.reduce(function (s, o) { return s + (fn(o) || 0); }, 0); }
+    function formatDate(iso) {
+      if (!iso) return '';
+      var d = /^\d+$/.test(String(iso)) ? new Date(Number(iso)) : new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    function formatTime(iso) {
+      var d = new Date(iso);
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    function pct(n, d) { return d ? Math.round((n / d) * 100) + '%' : '—'; }
+    function errorHtml(err) { return '<div class="error-box">Failed to load data: ' + escapeHtml(err && err.message ? err.message : err) + '</div>'; }
+    function loadingHtml(text) { return '<div class="loading"><span class="spinner"></span>' + escapeHtml(text || 'Loading data from HubSpot…') + '</div>'; }
+    function infoIcon(text) { return '<span class="info-icon" data-tooltip="' + escapeHtml(text) + '">i</span>'; }
+    function hubspotUrl(type, id) {
+      if (!portalId || !id) return null;
+      var objectTypeId = { contact: '0-1', company: '0-2', deal: '0-3' }[type];
+      return 'https://app.hubspot.com/contacts/' + portalId + '/record/' + objectTypeId + '/' + id;
+    }
+
+    function apiGet(url) {
+      return fetch(url).then(function (r) {
         return r.json().catch(function () { return null; }).then(function (body) {
           if (!r.ok) throw new Error((body && body.message) ? body.message : ('HTTP ' + r.status));
           return body;
         });
       });
     }
-    function apiGet(url) { return apiFetch(url); }
-    function apiPost(url, payload) {
-      return apiFetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+
+    function setDataAsOf(iso) {
+      document.getElementById('data-as-of').textContent = 'Data as of ' + formatTime(iso);
     }
 
-    // ============================= generic helpers =============================
-    function escapeHtml(s) {
-      var div = document.createElement('div');
-      div.textContent = (s === undefined || s === null) ? '' : String(s);
-      return div.innerHTML;
+    // ---- roster helpers ----
+    function ownersList(owners) {
+      return Object.keys(owners).map(function (id) { return owners[id]; });
     }
-    function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
-    function sumBy(list, fn) { return list.reduce(function (s, o) { return s + (fn(o) || 0); }, 0); }
-    function destroyCharts() { chartInstances.forEach(function (c) { c.destroy(); }); chartInstances = []; }
-
-    function formatDateShort(iso) {
-      if (!iso) return '';
-      var d = new Date(iso);
-      if (isNaN(d.getTime())) return String(iso);
-      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    function colorForOwner(owners, ownerId) {
+      var idx = Object.keys(owners).indexOf(ownerId);
+      return SDR_COLORS[(idx < 0 ? 0 : idx) % SDR_COLORS.length];
     }
-    function formatWeekLabel(key) {
-      var d = new Date(key + 'T00:00:00Z');
-      return isNaN(d.getTime()) ? key : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    function regionSort(a, b) {
+      var ra = REGION_ORDER.indexOf(a.region), rb = REGION_ORDER.indexOf(b.region);
+      return ra !== rb ? ra - rb : a.name.localeCompare(b.name);
     }
 
-    function chartCardHtml(canvasId, title, description, infoText) {
-      return '<div class="chart-card">' +
-        '<div class="chart-card-header">' +
-          '<h4>' + escapeHtml(title) + ' <span class="info-icon" data-tooltip="' + escapeAttr(infoText) + '">i</span></h4>' +
-          '<div class="chart-desc">' + escapeHtml(description) + '</div>' +
-        '</div>' +
-        '<canvas id="' + canvasId + '"></canvas>' +
-      '</div>';
-    }
+    // ============================= charts =============================
+    Chart.defaults.color = '#8E99AB';
+    Chart.defaults.font.family = 'Inter, -apple-system, sans-serif';
+    Chart.defaults.font.size = 12;
+    Chart.defaults.borderColor = '#2C3647';
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.boxWidth = 8;
+    Chart.defaults.plugins.legend.labels.color = '#C9D1DC';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#0A0E13';
+    Chart.defaults.plugins.tooltip.borderColor = '#2C3647';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.padding = 10;
 
-    function kpiHtml(id, value, label, infoText) {
-      return '<div class="kpi-card" id="' + id + '">' +
-        '<div class="value">' + value + '</div>' +
-        '<div class="label">' + escapeHtml(label) + ' <span class="info-icon" data-tooltip="' + escapeAttr(infoText) + '">i</span></div>' +
-      '</div>';
-    }
+    var chartsByGroup = {};
+    function trackChart(group, chart) { (chartsByGroup[group] = chartsByGroup[group] || []).push(chart); return chart; }
+    function destroyCharts(group) { (chartsByGroup[group] || []).forEach(function (c) { c.destroy(); }); chartsByGroup[group] = []; }
 
-    function baseChartOptions(stacked) {
+    function axes(stacked, xTitle, yTitle) {
       return {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { labels: { color: '#E6E9EE' } } },
-        scales: {
-          x: { stacked: stacked, ticks: { color: '#8B96A5' }, grid: { color: '#2A3341' } },
-          y: { stacked: stacked, beginAtZero: true, ticks: { color: '#8B96A5' }, grid: { color: '#2A3341' } }
-        }
+        x: { stacked: stacked, grid: { display: false }, ticks: { color: '#C9D1DC', maxRotation: 40, autoSkip: false }, title: xTitle ? { display: true, text: xTitle } : undefined },
+        y: { stacked: stacked, beginAtZero: true, grid: { color: '#263041' }, ticks: { precision: 0 }, title: yTitle ? { display: true, text: yTitle } : undefined }
       };
     }
 
-    // ---- drill-down modal ----
-    function openRecordsModal(title, records, type) {
-      var cols = COLUMN_DEFS[type] || COLUMN_DEFS.deal;
-      var pathSeg = RECORD_URL_PATH[type] || 'record';
-      var portalId = currentPortalId;
+    function emptyChart(canvasId, text) {
+      var el = document.getElementById(canvasId);
+      if (el) el.parentNode.innerHTML = '<div class="chart-empty">' + escapeHtml(text || 'No data for this selection') + '</div>';
+    }
 
-      var theadHtml = '<tr>' + cols.map(function (c) { return '<th>' + escapeHtml(c.label) + '</th>'; }).join('') + '</tr>';
-      var rowsHtml = (records || []).map(function (r) {
-        return '<tr>' + cols.map(function (c) {
-          var val = r[c.key];
-          if (c.stage) val = STAGE_LABELS[val] || val;
-          if (c.date && val) val = formatDateShort(val);
-          var display = escapeHtml(val === undefined || val === null || val === '' ? '—' : val);
-          if (c.link && portalId && r.id) {
-            var url = 'https://app.hubspot.com/contacts/' + portalId + '/' + pathSeg + '/' + r.id;
-            return '<td><a href="' + url + '" target="_blank" rel="noopener">' + display + '</a></td>';
-          }
-          return '<td>' + display + '</td>';
-        }).join('') + '</tr>';
-      }).join('');
+    // One line per series across x labels. series: [{ label, color, values[] }]; onPick(seriesIndex, xIndex)
+    function lineChart(group, canvasId, xLabels, series, yTitle, onPick) {
+      if (!series.length) return emptyChart(canvasId);
+      return trackChart(group, new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: {
+          labels: xLabels,
+          datasets: series.map(function (s) {
+            return {
+              label: s.label, data: s.values, borderColor: s.color, backgroundColor: s.color,
+              borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 7, tension: 0.25
+            };
+          })
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'nearest', intersect: false },
+          plugins: { legend: { position: 'bottom' } },
+          scales: axes(false, null, yTitle),
+          onClick: function (evt, els) { if (els.length) onPick(els[0].datasetIndex, els[0].index); }
+        }
+      }));
+    }
 
+    // Bars per x label, stacked by series. series: [{ label, color, values[] }]; onPick(seriesIndex, xIndex)
+    function stackedBarChart(group, canvasId, xLabels, series, yTitle, onPick) {
+      if (!xLabels.length) return emptyChart(canvasId);
+      return trackChart(group, new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: {
+          labels: xLabels,
+          datasets: series.map(function (s) {
+            return { label: s.label, data: s.values, backgroundColor: s.color, borderColor: '#1C2330', borderWidth: { top: 1 }, maxBarThickness: 64 };
+          })
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', display: series.length > 1 },
+            tooltip: { callbacks: { footer: function (items) {
+              if (series.length < 2 || !items.length) return '';
+              var i = items[0].dataIndex;
+              return 'Total: ' + sum(series, function (s) { return s.values[i]; });
+            } } }
+          },
+          scales: axes(true, null, yTitle),
+          onClick: function (evt, els) { if (els.length) onPick(els[0].datasetIndex, els[0].index); }
+        }
+      }));
+    }
+
+    function chartCardHtml(canvasId, title, desc, info, short) {
+      return '<div class="chart-card">' +
+        '<h4>' + escapeHtml(title) + (info ? infoIcon(info) : '') + '</h4>' +
+        '<div class="chart-desc">' + escapeHtml(desc) + '</div>' +
+        '<div class="chart-box' + (short ? ' short' : '') + '"><canvas id="' + canvasId + '"></canvas></div>' +
+      '</div>';
+    }
+
+    // ============================= modals =============================
+    // Modals stack: a chart inside a modal can open a records modal on top of it.
+    function openModal(title, subtitle, bodyHtml, onMount) {
+      var group = 'modal-' + Date.now() + '-' + Math.random().toString(36).slice(2);
       var overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
       overlay.innerHTML =
-        '<div class="modal-box modal-box-wide">' +
-          '<span class="modal-close">&times;</span>' +
-          '<h3>' + escapeHtml(title) + '</h3>' +
-          '<div class="modal-sub">' + (records || []).length + ' record' + ((records || []).length === 1 ? '' : 's') + '</div>' +
-          ((records || []).length
-            ? '<div class="modal-table-wrap"><table class="modal-table"><thead>' + theadHtml + '</thead><tbody>' + rowsHtml + '</tbody></table></div>'
-            : '<div class="modal-empty">No records match.</div>') +
+        '<div class="modal-box" role="dialog" aria-modal="true">' +
+          '<div class="modal-head"><div><h3>' + escapeHtml(title) + '</h3>' +
+          (subtitle ? '<div class="modal-sub">' + escapeHtml(subtitle) + '</div>' : '') + '</div>' +
+          '<button class="modal-close" aria-label="Close">&times;</button></div>' +
+          bodyHtml +
         '</div>';
-
-      function close() { document.body.removeChild(overlay); }
+      function close() {
+        destroyCharts(group);
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        document.removeEventListener('keydown', onKey);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape' && document.querySelector('.modal-overlay:last-of-type') === overlay) close();
+      }
       overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
       overlay.querySelector('.modal-close').addEventListener('click', close);
+      document.addEventListener('keydown', onKey);
       document.body.appendChild(overlay);
+      if (onMount) onMount(overlay, group);
+      return overlay;
     }
 
-    function showError(containerId, err) {
-      document.getElementById(containerId).innerHTML = '<div class="error-box">Failed to load data: ' + escapeHtml(err && err.message ? err.message : err) + '</div>';
+    function cellValue(col, r) {
+      var v = col.get ? col.get(r) : r[col.key];
+      if (col.date && v) v = formatDate(v);
+      return v;
     }
 
-    // ---- generic region/SDR toggle, reused by Account Activity, Contact Activity, MOFU ----
-    function wireRegionSdrToggle(prefix, state, onChange) {
-      var modeRegionBtn = document.getElementById(prefix + '-mode-region');
-      var modeSdrBtn = document.getElementById(prefix + '-mode-sdr');
-      var regionSelect = document.getElementById(prefix + '-region-select');
-      var sdrSelect = document.getElementById(prefix + '-sdr-select');
-
-      modeRegionBtn.addEventListener('click', function () {
-        state.mode = 'region';
-        modeRegionBtn.classList.add('active'); modeSdrBtn.classList.remove('active');
-        regionSelect.style.display = ''; sdrSelect.style.display = 'none';
-        onChange();
-      });
-      modeSdrBtn.addEventListener('click', function () {
-        state.mode = 'sdr';
-        modeSdrBtn.classList.add('active'); modeRegionBtn.classList.remove('active');
-        sdrSelect.style.display = ''; regionSelect.style.display = 'none';
-        onChange();
-      });
-      regionSelect.addEventListener('change', function (e) { state.region = e.target.value; onChange(); });
-      sdrSelect.addEventListener('change', function (e) { state.sdrId = e.target.value; onChange(); });
-    }
-
-    function populateRegionSelect(prefix, regions) {
-      var sel = document.getElementById(prefix + '-region-select');
-      sel.innerHTML = '<option value="ALL">All Regions</option>' +
-        regions.map(function (r) { return '<option value="' + escapeAttr(r) + '">' + escapeHtml(r) + '</option>'; }).join('');
-    }
-
-    function populateSdrSelect(prefix, ownersMap, state) {
-      var sel = document.getElementById(prefix + '-sdr-select');
-      var owners = Object.keys(ownersMap).map(function (id) { return ownersMap[id]; })
-        .sort(function (a, b) { return a.name.localeCompare(b.name); });
-      sel.innerHTML = owners.map(function (o) {
-        return '<option value="' + escapeAttr(o.ownerId) + '">' + escapeHtml(o.name) + ' (' + escapeHtml(o.region) + ')</option>';
+    function recordsTableHtml(records, type) {
+      var cols = COLUMN_DEFS[type] || COLUMN_DEFS.deal;
+      var head = '<tr>' + cols.map(function (c) { return '<th' + (c.num ? ' class="num"' : '') + '>' + escapeHtml(c.label) + '</th>'; }).join('') + '</tr>';
+      var body = records.map(function (r) {
+        return '<tr>' + cols.map(function (c) {
+          var v = cellValue(c, r);
+          var display = escapeHtml(v === undefined || v === null || v === '' ? '—' : v);
+          var url = c.link ? hubspotUrl(c.link, r.id) : null;
+          if (url) display = '<a href="' + url + '" target="_blank" rel="noopener">' + display + '</a>';
+          return '<td' + (c.num ? ' class="num"' : '') + '>' + display + '</td>';
+        }).join('') + '</tr>';
       }).join('');
-      if (owners.length && !state.sdrId) state.sdrId = owners[0].ownerId;
+      return '<div class="table-scroll"><table class="data-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
     }
 
-    function scopeFromState(state, ownersMap) {
-      var all = Object.keys(ownersMap).map(function (id) { return ownersMap[id]; });
-      if (state.mode === 'sdr') return state.sdrId ? [ownersMap[state.sdrId]] : [];
-      if (state.region === 'ALL') return all;
-      return all.filter(function (o) { return o.region === state.region; });
+    function openRecordsModal(title, records, type) {
+      records = records || [];
+      var sub = records.length + ' record' + (records.length === 1 ? '' : 's');
+      if (!records.length) return openModal(title, sub, '<div class="empty-box">No records match.</div>');
+      openModal(title, sub,
+        '<div class="modal-tools"><input type="search" placeholder="Filter these records…" aria-label="Filter records">' +
+        '<button class="btn" data-csv>Download CSV</button></div><div data-table>' + recordsTableHtml(records, type) + '</div>',
+        function (overlay) {
+          var input = overlay.querySelector('input[type=search]');
+          var holder = overlay.querySelector('[data-table]');
+          var cols = COLUMN_DEFS[type] || COLUMN_DEFS.deal;
+          function filtered() {
+            var q = input.value.trim().toLowerCase();
+            if (!q) return records;
+            return records.filter(function (r) {
+              return cols.some(function (c) { return String(cellValue(c, r) || '').toLowerCase().indexOf(q) !== -1; });
+            });
+          }
+          input.addEventListener('input', function () { holder.innerHTML = recordsTableHtml(filtered(), type); });
+          overlay.querySelector('[data-csv]').addEventListener('click', function () {
+            var rows = [cols.map(function (c) { return c.label; })].concat(filtered().map(function (r) {
+              return cols.map(function (c) { var v = cellValue(c, r); return v === undefined || v === null ? '' : v; });
+            }));
+            var csv = rows.map(function (row) { return row.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            a.download = title.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') + '.csv';
+            a.click();
+          });
+        });
     }
 
-    // ---- generic chart renderers (shared across tabs) ----
-    function renderWorkedVsNotWorkedChart(canvasId, scope, accessor, recordFilter, recordType) {
-      var el = document.getElementById(canvasId);
-      if (!el) return;
-      var labels = scope.map(function (o) { return o.name; });
-      var worked = scope.map(function (o) { return accessor(o).worked; });
-      var notWorked = scope.map(function (o) { return accessor(o).notWorked; });
-      var options = baseChartOptions(true);
-      options.onClick = function (evt, elements) {
-        if (!elements.length) return;
-        var owner = scope[elements[0].index];
-        var label = elements[0].datasetIndex === 0 ? 'Worked' : 'Not worked';
-        openRecordsModal(owner.name + ' — ' + label, recordFilter(owner, label), recordType);
-      };
-      var chart = new Chart(el, {
-        type: 'bar',
-        data: { labels: labels, datasets: [
-          { label: 'Worked', data: worked, backgroundColor: WORKED_COLOR },
-          { label: 'Not worked', data: notWorked, backgroundColor: NOT_WORKED_COLOR }
-        ] },
-        options: options
+    // ============================= filters (Region / SDR) =============================
+    function wireSegmented(id, onChange) {
+      var group = document.getElementById(id);
+      group.querySelectorAll('button').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (btn.classList.contains('active')) return;
+          group.querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b === btn); });
+          onChange(btn.getAttribute('data-value'));
+        });
       });
-      chartInstances.push(chart);
     }
 
-    function renderStatusBreakdownChart(canvasId, scope, accessor, recordFilter, recordType) {
-      var el = document.getElementById(canvasId);
-      if (!el) return;
-      var labels = scope.map(function (o) { return o.name; });
-      var statusKeys = {};
-      scope.forEach(function (o) { Object.keys(accessor(o).statusCounts || {}).forEach(function (k) { statusKeys[k] = true; }); });
-      var keys = Object.keys(statusKeys);
-      var datasets = keys.map(function (key, i) {
-        return { label: key, data: scope.map(function (o) { return (accessor(o).statusCounts || {})[key] || 0; }), backgroundColor: PALETTE[i % PALETTE.length] };
+    function wireScopeFilter(prefix, state, onChange) {
+      var regionSel = document.getElementById(prefix + '-region');
+      var sdrSel = document.getElementById(prefix + '-sdr');
+      wireSegmented(prefix + '-mode', function (mode) {
+        state.mode = mode;
+        regionSel.hidden = mode !== 'region';
+        sdrSel.hidden = mode !== 'sdr';
+        onChange();
       });
-      var options = baseChartOptions(true);
-      options.onClick = function (evt, elements) {
-        if (!elements.length) return;
-        var owner = scope[elements[0].index];
-        var label = keys[elements[0].datasetIndex];
-        openRecordsModal(owner.name + ' — ' + label, recordFilter(owner, label), recordType);
-      };
-      var chart = new Chart(el, { type: 'bar', data: { labels: labels, datasets: datasets }, options: options });
-      chartInstances.push(chart);
+      regionSel.addEventListener('change', function () { state.region = regionSel.value; onChange(); });
+      sdrSel.addEventListener('change', function () { state.sdrId = sdrSel.value; onChange(); });
     }
 
-    function renderSingleSeriesChart(canvasId, scope, accessor, color, recordFilter, recordType) {
-      var el = document.getElementById(canvasId);
-      if (!el) return;
-      var labels = scope.map(function (o) { return o.name; });
-      var data = scope.map(function (o) { return accessor(o); });
-      var options = baseChartOptions(false);
-      options.onClick = function (evt, elements) {
-        if (!elements.length) return;
-        var owner = scope[elements[0].index];
-        openRecordsModal(owner.name, recordFilter(owner), recordType);
-      };
-      var chart = new Chart(el, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Count', data: data, backgroundColor: color }] }, options: options });
-      chartInstances.push(chart);
+    function populateScopeFilter(prefix, owners, state) {
+      var regionSel = document.getElementById(prefix + '-region');
+      var sdrSel = document.getElementById(prefix + '-sdr');
+      if (!regionSel.options.length) {
+        regionSel.innerHTML = '<option value="ALL">All regions</option>' +
+          REGION_ORDER.map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join('');
+      }
+      if (!sdrSel.options.length) {
+        var list = ownersList(owners).sort(regionSort);
+        sdrSel.innerHTML = REGION_ORDER.map(function (region) {
+          var inRegion = list.filter(function (o) { return o.region === region; });
+          if (!inRegion.length) return '';
+          return '<optgroup label="' + region + '">' + inRegion.map(function (o) {
+            return '<option value="' + escapeHtml(o.ownerId) + '">' + escapeHtml(o.name) + '</option>';
+          }).join('') + '</optgroup>';
+        }).join('');
+        if (!state.sdrId && list.length) state.sdrId = list[0].ownerId;
+      }
+      regionSel.value = state.region;
+      sdrSel.value = state.sdrId;
     }
 
-    // stacked by week, one bar per SDR (Contact Activity's "all-time" charts)
-    function renderWeeklyByOwnerChart(canvasId, scope, weeklyAccessor, recordFilter, recordType) {
-      var el = document.getElementById(canvasId);
-      if (!el) return;
-      var labels = scope.map(function (o) { return o.name; });
-      var weekKeys = {};
-      scope.forEach(function (o) { Object.keys(weeklyAccessor(o) || {}).forEach(function (k) { weekKeys[k] = true; }); });
-      var keys = Object.keys(weekKeys).sort();
-      var datasets = keys.map(function (key, i) {
-        return { label: formatWeekLabel(key), data: scope.map(function (o) { return (weeklyAccessor(o) || {})[key] || 0; }), backgroundColor: PALETTE[i % PALETTE.length] };
-      });
-      var options = baseChartOptions(true);
-      options.onClick = function (evt, elements) {
-        if (!elements.length) return;
-        var owner = scope[elements[0].index];
-        var key = keys[elements[0].datasetIndex];
-        openRecordsModal(owner.name + ' — week of ' + formatWeekLabel(key), recordFilter(owner, key), recordType);
-      };
-      var chart = new Chart(el, { type: 'bar', data: { labels: labels, datasets: datasets }, options: options });
-      chartInstances.push(chart);
+    function scopeOwners(state, owners) {
+      var list = ownersList(owners).sort(regionSort);
+      if (state.mode === 'sdr') return list.filter(function (o) { return o.ownerId === state.sdrId; });
+      if (state.region === 'ALL') return list;
+      return list.filter(function (o) { return o.region === state.region; });
     }
 
-    // one bar per WEEK, totaled across the current scope (MOFU's weekly trend charts)
-    function renderWeeklyTrendChart(canvasId, weeks, scope, weeklyByOwnerAccessor, recordFilter, recordType, color) {
-      var el = document.getElementById(canvasId);
-      if (!el) return;
-      var labels = weeks.map(function (w) { return w.label; });
-      var data = weeks.map(function (w) { return sumBy(scope, function (o) { return (weeklyByOwnerAccessor(o) || {})[w.key] || 0; }); });
-      var options = baseChartOptions(false);
-      options.onClick = function (evt, elements) {
-        if (!elements.length) return;
-        var week = weeks[elements[0].index];
-        var recs = scope.reduce(function (acc, o) { return acc.concat(recordFilter(o, week.key)); }, []);
-        openRecordsModal(week.label + ' — records', recs, recordType);
-      };
-      var chart = new Chart(el, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Count', data: data, backgroundColor: color }] }, options: options });
-      chartInstances.push(chart);
-    }
-
-    // 3 fixed ageing buckets (MOFU stuck-deal charts)
-    function renderAgeingChart(canvasId, scope, dataByOwner, recordType) {
-      var el = document.getElementById(canvasId);
-      if (!el) return;
-      var buckets = [
-        { key: 'over30', label: '30+ days', color: PALETTE[3] },
-        { key: 'over60', label: '60+ days', color: PALETTE[5] },
-        { key: 'over90', label: '90+ days', color: PALETTE[9] }
-      ];
-      var labels = scope.map(function (o) { return o.name; });
-      var datasets = buckets.map(function (b) {
-        return { label: b.label, data: scope.map(function (o) { return (dataByOwner[o.ownerId] || {})[b.key] || 0; }), backgroundColor: b.color };
-      });
-      var options = baseChartOptions(true);
-      options.onClick = function (evt, elements) {
-        if (!elements.length) return;
-        var owner = scope[elements[0].index];
-        var bucket = buckets[elements[0].datasetIndex];
-        var recs = (dataByOwner[owner.ownerId] || {})[bucket.key + 'Records'] || [];
-        openRecordsModal(owner.name + ' — ' + bucket.label + ' in stage', recs, recordType);
-      };
-      var chart = new Chart(el, { type: 'bar', data: { labels: labels, datasets: datasets }, options: options });
-      chartInstances.push(chart);
+    function scopeLabel(state, owners) {
+      if (state.mode === 'sdr') return owners[state.sdrId] ? owners[state.sdrId].name : '';
+      return state.region === 'ALL' ? 'All regions' : state.region;
     }
 
     // ============================= navigation =============================
-    var contactActivityLoaded = false, mofuLoaded = false, inputsLoaded = false;
+    var PAGES = ['leaderboard', 'rep-overview', 'actionables'];
+    var loaders = {};
+    var loadedPages = {};
 
-    document.querySelectorAll('.nav-item[data-page]').forEach(function (item) {
-      item.addEventListener('click', function () {
-        document.querySelectorAll('.nav-item[data-page]').forEach(function (n) { n.classList.remove('active'); });
-        item.classList.add('active');
-        document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
-        var page = item.getAttribute('data-page');
-        document.getElementById('page-' + page).classList.add('active');
-        if (page === 'contact-activity' && !contactActivityLoaded) { contactActivityLoaded = true; loadContactActivity(); }
-        if (page === 'mofu-activity' && !mofuLoaded) { mofuLoaded = true; loadMofu(); }
-        if (page === 'inputs' && !inputsLoaded) { inputsLoaded = true; loadInputs(); }
-      });
+    function showPage(page) {
+      if (PAGES.indexOf(page) === -1) page = 'leaderboard';
+      document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.toggle('active', n.getAttribute('data-page') === page); });
+      document.querySelectorAll('.page').forEach(function (p) { p.classList.toggle('active', p.id === 'page-' + page); });
+      if (location.hash !== '#' + page) history.replaceState(null, '', '#' + page);
+      currentPage = page;
+      if (!loadedPages[page]) { loadedPages[page] = true; loaders[page](false); }
+    }
+    var currentPage = null;
+    document.querySelectorAll('.nav-item').forEach(function (item) {
+      item.addEventListener('click', function () { showPage(item.getAttribute('data-page')); });
     });
+    window.addEventListener('hashchange', function () { showPage(location.hash.slice(1)); });
+    document.getElementById('refresh-btn').addEventListener('click', function () { loaders[currentPage](true); });
 
-    // ============================= SUMMARY =============================
-    var summaryData = null;
+    // ============================= LEADERBOARD =============================
+    var LB_METRICS = [
+      {
+        key: 'allboundOpps', title: 'Allbound + Outbound Opps Created', unit: 'opps',
+        desc: 'Qualified opportunities with Final Lead Source Allbound or Pure Outbound',
+        info: 'Deals in the Sales pipeline where SDR Owner (Deal) is the rep, Became Qualified to Buy Date is in this fiscal year, Final Lead Source is Allbound or Pure Outbound, and the deal is in an opportunity stage (Qualified to buy through Closed won/lost, Debook, Deal Desk Verified).'
+      },
+      {
+        key: 'allOpps', title: 'All Opps Created', unit: 'opps',
+        desc: 'Qualified opportunities created by the rep, any lead source',
+        info: 'Deals in the Sales pipeline where SDR Owner (Deal) is the rep and Became Qualified to Buy Date is in this fiscal year, in an opportunity stage (Qualified to buy through Closed won/lost, Debook, Deal Desk Verified).'
+      },
+      {
+        key: 'meetings', title: 'Meetings Booked', unit: 'meetings',
+        desc: 'Deals that entered the Scheduled stage, excluding Junk Leads',
+        info: 'Deals in the Sales pipeline where SDR Owner (Deal) is the rep and the date the deal entered Scheduled is in this fiscal year. Deals disqualified as Junk Lead are excluded.'
+      }
+    ];
+    var lbData = null;
 
-    function loadSummary() {
-      apiGet('/api/summary')
-        .then(renderSummary)
-        .catch(function (err) { showError('summary-content', err); showError('sdr-performance-content', err); });
+    loaders.leaderboard = function (refresh) {
+      document.getElementById('lb-content').innerHTML = loadingHtml();
+      apiGet('/api/leaderboard' + (refresh ? '?refresh=1' : ''))
+        .then(function (data) { lbData = data; notePortalId(data.portalId); setDataAsOf(data.generatedAt); renderLeaderboard(); })
+        .catch(function (err) { document.getElementById('lb-content').innerHTML = errorHtml(err); });
+    };
+
+    function countBy(records, keyFn) {
+      var out = {};
+      records.forEach(function (r) { var k = keyFn(r); out[k] = (out[k] || 0) + 1; });
+      return out;
     }
 
-    function renderSummary(data) {
-      summaryData = data;
-      notePortalId(data.portalId);
-      document.getElementById('summary-quarter-label').textContent = data.quarterLabel + ' · always shows the current fiscal quarter';
-
-      var order = ['NAM', 'EMEA', 'APAC'];
-      var html = '<div class="region-row">';
-      order.forEach(function (region) {
-        var r = data.regions[region];
-        if (!r) return;
-        html += '<div class="region-card"><h3>' + escapeHtml(region) + ' Leaderboard ' +
-          '<span class="info-icon" data-tooltip="SQLs = deals owned by this region\'s SDRs (SDR Owner - Deal) whose Became Qualified to Buy Date falls in the current fiscal quarter, in stage Qualified to buy / Presentation done / Proposal Shared / Contracting / Closed won / Closed lost.">i</span></h3>';
-        html += '<div class="trophy-row">';
-        html += trophyHtml(r.leaderboard[0], 'gold', 'place-1');
-        html += trophyHtml(r.leaderboard[1], 'silver', 'place-2');
-        html += trophyHtml(r.leaderboard[2], 'bronze', 'place-3');
-        html += '</div>';
-        html += '<div class="sub-tiles">';
-        html += '<div class="tile" id="summary-sql-' + region + '"><div class="value">' + r.totalSQLs + '</div><div class="label">Total SQLs</div></div>';
-        html += '<div class="tile" id="summary-mtg-' + region + '"><div class="value">' + r.totalMeetings + '</div><div class="label">Total Meetings</div></div>';
-        html += '</div></div>';
-      });
-      html += '</div>';
-      document.getElementById('summary-content').innerHTML = html;
-
-      order.forEach(function (region) {
-        var r = data.regions[region];
-        if (!r) return;
-        document.getElementById('summary-sql-' + region).addEventListener('click', function () {
-          openRecordsModal(region + ' — Total SQLs this quarter', r.sqlRecords, 'deal');
-        });
-        document.getElementById('summary-mtg-' + region).addEventListener('click', function () {
-          openRecordsModal(region + ' — Total Meetings this quarter', r.meetingRecords, 'deal');
-        });
-      });
-
-      renderSdrPerformance(data.sdrPerformance);
+    // Reps in `region` with at least one record, ranked by count (ties alphabetical).
+    function rankRegion(metricKey, region) {
+      var counts = countBy(lbData.metrics[metricKey], function (r) { return r.ownerId; });
+      return ownersList(lbData.owners)
+        .filter(function (o) { return o.region === region && counts[o.ownerId]; })
+        .map(function (o) { return { owner: o, count: counts[o.ownerId] }; })
+        .sort(function (a, b) { return b.count - a.count || a.owner.name.localeCompare(b.owner.name); });
     }
 
-    function trophyHtml(entry, tier, placeClass) {
-      if (!entry) return '<div class="trophy empty ' + placeClass + '"><div class="medal">–</div><div class="name">—</div><div class="count">—</div></div>';
-      var icon = tier === 'gold' ? '🏆' : (tier === 'silver' ? '🥈' : '🥉');
-      return '<div class="trophy ' + tier + ' ' + placeClass + '">' +
-        '<div class="medal">' + icon + '</div>' +
-        '<div class="name">' + escapeHtml(entry.name) + '</div>' +
-        '<div class="count">' + entry.sqls + '</div>' +
-      '</div>';
-    }
-
-    function renderSdrPerformance(perf) {
-      document.getElementById('sdr-performance-desc').textContent =
-        'Target vs Achieved SQLs for each quarter of ' + perf.fyLabel + '. Achieved counts SQL-stage deals whose Final Lead Source is Allbound or Pure Outbound.';
-
-      var html = '<table class="data-table"><thead><tr>' +
-        '<th>SDR Name</th>' +
-        '<th>Q1 Target</th><th>Q1 Achieved</th>' +
-        '<th>Q2 Target</th><th>Q2 Achieved</th>' +
-        '<th>Q3 Target</th><th>Q3 Achieved</th>' +
-        '<th>Q4 Target</th><th>Q4 Achieved</th>' +
-        '</tr></thead><tbody>';
-
-      perf.rows.forEach(function (row) {
-        html += '<tr><td>' + escapeHtml(row.name) + '</td>';
-        [1, 2, 3, 4].forEach(function (qn) {
-          var target = row['q' + qn + 'Target'];
-          var achieved = row['q' + qn + 'Achieved'];
-          html += '<td class="num">' + (target === null || typeof target === 'undefined' ? '<span class="na">N/A</span>' : target) + '</td>';
-          html += '<td class="num clickable" id="perf-' + row.ownerId + '-q' + qn + '">' + achieved + '</td>';
-        });
-        html += '</tr>';
-      });
-      html += '</tbody></table>';
-      document.getElementById('sdr-performance-content').innerHTML = html;
-
-      perf.rows.forEach(function (row) {
-        [1, 2, 3, 4].forEach(function (qn) {
-          var cell = document.getElementById('perf-' + row.ownerId + '-q' + qn);
-          if (!cell) return;
-          cell.addEventListener('click', function () {
-            var recs = (perf.records[row.ownerId] || {})[qn] || [];
-            openRecordsModal(row.name + ' — Q' + qn + ' Achieved SQLs', recs, 'deal');
-          });
-        });
+    function recordsFor(metricKey, ownerId, quarterNumber) {
+      return lbData.metrics[metricKey].filter(function (r) {
+        return (!ownerId || r.ownerId === ownerId) && (!quarterNumber || r.quarterNumber === quarterNumber);
       });
     }
 
-    // ============================= ACCOUNT ACTIVITY =============================
-    var accountActivityData = null;
-    var aaState = { mode: 'region', region: 'ALL', sdrId: null };
-
-    wireRegionSdrToggle('aa', aaState, renderAccountActivity);
-
-    function loadAccountActivity() {
-      apiGet('/api/account-activity')
-        .then(function (data) {
-          accountActivityData = data;
-          notePortalId(data.portalId);
-          populateRegionSelect('aa', data.regions);
-          populateSdrSelect('aa', data.owners, aaState);
-          renderAccountActivity();
-        })
-        .catch(function (err) { showError('account-activity-content', err); });
+    function trophySvg(tier, uid) {
+      var stops = {
+        gold: ['#F6E7A8', '#D9B24A', '#9C7621'],
+        silver: ['#F1F3F6', '#BCC3CD', '#7A828E'],
+        bronze: ['#EBC59C', '#BF8A5C', '#80553A']
+      }[tier];
+      var id = 'tg-' + uid;
+      return '<svg viewBox="0 0 64 76" aria-hidden="true"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0" stop-color="' + stops[0] + '"/><stop offset=".55" stop-color="' + stops[1] + '"/><stop offset="1" stop-color="' + stops[2] + '"/></linearGradient></defs>' +
+        '<g fill="url(#' + id + ')">' +
+          '<path d="M14 4h36v6c0 13-6.5 23-18 25C20.5 33 14 23 14 10V4z"/>' +
+          '<path d="M14 9H5v4c0 8 5 13 12 14l-1.5-4.6C11.6 21.4 9.5 18.3 9.5 13.5V13H14V9zM50 9h9v4c0 8-5 13-12 14l1.5-4.6c3.9-1 6-4.1 6-8.9V13H50V9z"/>' +
+          '<rect x="28" y="34" width="8" height="14" rx="1.5"/>' +
+          '<rect x="20" y="48" width="24" height="7" rx="2.5"/>' +
+          '<rect x="14" y="58" width="36" height="9" rx="3"/>' +
+        '</g><path d="M21 9c0 9 2.6 15.5 7 19" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/></svg>';
     }
 
-    function renderAccountActivity() {
-      if (!accountActivityData) return;
-      destroyCharts();
-      var scope = scopeFromState(aaState, accountActivityData.owners);
-
-      var accountsOwned = sumBy(scope, function (o) { return o.accountsOwned; });
-      var accountsWorked = sumBy(scope, function (o) { return o.accountsWorked; });
-      var accountsNotWorked = accountsOwned - accountsWorked;
-      var reachedOutSum = sumBy(scope, function (o) { return o.reachedOutContactsSum; });
-      var avgContacts = accountsWorked > 0 ? (reachedOutSum / accountsWorked) : 0;
-
-      var html = '<div class="kpi-row">';
-      html += kpiHtml('aa-kpi-owned', accountsOwned, 'Accounts Owned', 'Count of companies where SDR Owner (Company) is one of the SDRs in the current filter selection.');
-      html += kpiHtml('aa-kpi-worked', accountsWorked, 'Accounts Worked', 'Of the accounts owned above, those where Account worked after Allocation? reads Yes.');
-      html += kpiHtml('aa-kpi-notworked', accountsNotWorked, 'Accounts Not Worked', 'Accounts Owned minus Accounts Worked.');
-      html += kpiHtml('aa-kpi-avg', avgContacts.toFixed(1), 'Avg Contacts per Account (worked)', 'Sum of Num of reached out contacts across worked accounts, divided by the number of worked accounts.');
-      html += '</div>';
-
-      html += chartCardHtml('chart-all-allocation', 'All allocation types', 'Every account owned by each SDR, split by worked status.',
-        'Owned = SDR Owner (Company) matches. Worked = Account worked after Allocation? is Yes.');
-
-      html += categoryRowHtml('warm', 'Warm accounts', 'Companies tagged Warm Accounts or Surging accounts.');
-      html += categoryRowHtml('thirdParty', '3rd party accounts', 'Companies tagged 3rd Party Signals.');
-      html += categoryRowHtml('displacement', 'Displacement accounts', 'Companies with a value set on Incumbent CLM.');
-      html += categoryRowHtml('event', 'Event accounts', 'Companies tagged Warm Event Accounts.');
-
-      html += chartCardHtml('chart-not-converted', 'Accounts not yet converted to a meeting', 'Worked accounts whose Lifecycle Stage (Custom) is not Marketing Qualified Account, Opportunity, or Current Customer.',
-        'Counts worked accounts only; lifecycle stages that count as "converted": Marketing Qualified Account, Opportunity, Current Customer.');
-
-      document.getElementById('account-activity-content').innerHTML = html;
-
-      renderWorkedVsNotWorkedChart('chart-all-allocation', scope, function (o) {
-        return { worked: o.accountsWorked, notWorked: o.accountsOwned - o.accountsWorked };
-      }, function (owner, label) {
-        return owner.records.filter(function (r) { return r.worked === (label === 'Worked'); });
-      }, 'company');
-
-      ['warm', 'thirdParty', 'displacement', 'event'].forEach(function (key) {
-        renderWorkedVsNotWorkedChart('chart-' + key + '-worked', scope, function (o) { return o[key]; }, function (owner, label) {
-          return owner.records.filter(function (r) { return r[key] && r.worked === (label === 'Worked'); });
-        }, 'company');
-        renderStatusBreakdownChart('chart-' + key + '-status', scope, function (o) { return o[key]; }, function (owner, label) {
-          return owner.records.filter(function (r) { return r[key] && r.worked && r.lifecycle === label; });
-        }, 'company');
-      });
-
-      renderSingleSeriesChart('chart-not-converted', scope, function (o) { return o.notYetConverted; }, '#D9A85C', function (owner) {
-        return owner.records.filter(function (r) { return r.worked && !r.converted; });
-      }, 'company');
-    }
-
-    function categoryRowHtml(key, title, info) {
-      return '<div class="chart-row">' +
-        chartCardHtml('chart-' + key + '-worked', title + ' worked vs not worked', 'Split by worked status, one bar per SDR.', info + ' Then split by Account worked after Allocation?.') +
-        chartCardHtml('chart-' + key + '-status', title + ' worked, status', 'Lifecycle stage breakdown of the worked accounts above, one bar per SDR.', info + ' Only worked accounts, broken down by Lifecycle Stage (Custom).') +
-      '</div>';
-    }
-
-    // ============================= CONTACT ACTIVITY =============================
-    var contactActivityData = null;
-    var caState = { mode: 'region', region: 'ALL', sdrId: null };
-
-    wireRegionSdrToggle('ca', caState, renderContactActivity);
-
-    function loadContactActivity() {
-      apiGet('/api/contact-activity')
-        .then(function (data) {
-          contactActivityData = data;
-          notePortalId(data.portalId);
-          document.getElementById('ca-subtitle').textContent = 'Engagement history look-back: last ' + data.lookbackDays + ' days';
-          populateRegionSelect('ca', data.regions);
-          populateSdrSelect('ca', data.owners, caState);
-          renderContactActivity();
-        })
-        .catch(function (err) { showError('contact-activity-content', err); });
-    }
-
-    function renderContactActivity() {
-      if (!contactActivityData) return;
-      destroyCharts();
-      var scope = scopeFromState(caState, contactActivityData.owners);
-      var calls = contactActivityData.calls, emails = contactActivityData.emails;
-
-      var totalCalled = sumBy(scope, function (o) { return (calls[o.ownerId] || {}).allTime || 0; });
-      var totalEmailed = sumBy(scope, function (o) { return (emails[o.ownerId] || {}).allTime || 0; });
-
-      var html = '<div class="kpi-row kpi-row-2">';
-      html += kpiHtml('ca-kpi-called', totalCalled, 'Contacts Called', 'Distinct contacts with a logged Call, where the call\'s Activity assigned to matches that contact\'s own SDR owner (Contact), among the SDR(s) selected on the right.');
-      html += kpiHtml('ca-kpi-emailed', totalEmailed, 'Contacts Emailed', 'Distinct contacts with an outgoing Email logged, where the email\'s Activity assigned to matches that contact\'s own SDR owner (Contact), among the SDR(s) selected on the right.');
-      html += '</div>';
-
-      html += '<div class="chart-row">' +
-        chartCardHtml('chart-calls-7d', 'Contacts called - last 7 days', 'One bar per SDR: distinct contacts they called in the last 7 days.', 'Same definition as the Contacts Called tile, restricted to calls in the last 7 days.') +
-        chartCardHtml('chart-calls-alltime', 'Contacts called - all time (owned accounts)', 'Stacked by the week of each contact\'s most recent call from this SDR.', 'Total = distinct contacts this SDR has ever called among contacts they own. Each contact counts once, in the week of their latest call.') +
-      '</div>';
-
-      html += '<div class="chart-row">' +
-        chartCardHtml('chart-emails-7d', 'Contacts emailed - last 7 days', 'One bar per SDR: distinct contacts they emailed in the last 7 days.', 'Same definition as the Contacts Emailed tile, restricted to emails in the last 7 days.') +
-        chartCardHtml('chart-emails-alltime', 'Contacts emailed - all time (owned accounts)', 'Stacked by the week of each contact\'s most recent email from this SDR.', 'Total = distinct contacts this SDR has ever emailed among contacts they own. Each contact counts once, in the week of their latest email.') +
-      '</div>';
-
-      document.getElementById('contact-activity-content').innerHTML = html;
-
-      var sevenDaysAgoMs = Date.now() - 7 * 86400000;
-
-      renderSingleSeriesChart('chart-calls-7d', scope, function (o) { return (calls[o.ownerId] || {}).last7Days || 0; }, WORKED_COLOR,
-        function (owner) {
-          return ((calls[owner.ownerId] || {}).records || []).filter(function (r) { return new Date(r.lastTouch).getTime() >= sevenDaysAgoMs; });
-        }, 'contact');
-      renderWeeklyByOwnerChart('chart-calls-alltime', scope, function (o) { return (calls[o.ownerId] || {}).weekly || {}; },
-        function (owner, weekKey) {
-          return ((calls[owner.ownerId] || {}).records || []).filter(function (r) { return r.weekKey === weekKey; });
-        }, 'contact');
-
-      renderSingleSeriesChart('chart-emails-7d', scope, function (o) { return (emails[o.ownerId] || {}).last7Days || 0; }, PALETTE[2],
-        function (owner) {
-          return ((emails[owner.ownerId] || {}).records || []).filter(function (r) { return new Date(r.lastTouch).getTime() >= sevenDaysAgoMs; });
-        }, 'contact');
-      renderWeeklyByOwnerChart('chart-emails-alltime', scope, function (o) { return (emails[o.ownerId] || {}).weekly || {}; },
-        function (owner, weekKey) {
-          return ((emails[owner.ownerId] || {}).records || []).filter(function (r) { return r.weekKey === weekKey; });
-        }, 'contact');
-    }
-
-    // ============================= MOFU ACTIVITY =============================
-    var mofuData = null;
-    var mofuState = { mode: 'region', region: 'ALL', sdrId: null, quarterKey: null };
-
-    wireRegionSdrToggle('mofu', mofuState, renderMofu);
-    document.getElementById('mofu-quarter-select').addEventListener('change', function (e) {
-      mofuState.quarterKey = e.target.value;
-      loadMofu();
-    });
-
-    function loadMofu() {
-      document.getElementById('mofu-activity-content').innerHTML = '<div class="loading">Loading data from HubSpot…</div>';
-      var qs = mofuState.quarterKey ? ('?quarter=' + encodeURIComponent(mofuState.quarterKey)) : '';
-      apiGet('/api/mofu' + qs)
-        .then(function (data) {
-          mofuData = data;
-          notePortalId(data.portalId);
-          document.getElementById('mofu-subtitle').textContent = 'Showing ' + data.selectedQuarter.label;
-          var qSel = document.getElementById('mofu-quarter-select');
-          if (!qSel.options.length) {
-            qSel.innerHTML = data.quarterOptions.map(function (q) { return '<option value="' + escapeAttr(q.key) + '">' + escapeHtml(q.label) + '</option>'; }).join('');
-          }
-          qSel.value = data.selectedQuarter.key;
-          populateRegionSelect('mofu', data.regions);
-          populateSdrSelect('mofu', data.owners, mofuState);
-          renderMofu();
-        })
-        .catch(function (err) { showError('mofu-activity-content', err); });
-    }
-
-    function renderMofu() {
-      if (!mofuData) return;
-      destroyCharts();
-      var scope = scopeFromState(mofuState, mofuData.owners);
-      var t = mofuData.tiles;
-
-      var meetingsTotal = sumBy(scope, function (o) { return t.meetingsBooked.countByOwner[o.ownerId] || 0; });
-      var saaTotal = sumBy(scope, function (o) { return t.salesAccepted.countByOwner[o.ownerId] || 0; });
-      var oppsTotal = sumBy(scope, function (o) { return t.opportunities.countByOwner[o.ownerId] || 0; });
-      var noShowTotal = sumBy(scope, function (o) { return t.noShows.countByOwner[o.ownerId] || 0; });
-
-      var html = '<div class="kpi-row">';
-      html += kpiHtml('mofu-kpi-meetings', meetingsTotal, 'Meetings Booked', 'Deals whose date entered "Scheduled" falls in the selected quarter, excluding deals disqualified as Junk Lead.');
-      html += kpiHtml('mofu-kpi-saa', saaTotal, 'Sales Accepted', 'Deals whose date entered "Sales Accepted Account" falls in the selected quarter, excluding deals disqualified as Junk Lead.');
-      html += kpiHtml('mofu-kpi-opps', oppsTotal, 'Opportunities', 'Deals whose Became Qualified to Buy Date falls in the selected quarter, in stage Qualified to buy / Presentation done / Proposal Shared / Contracting / Debook / Deal Desk Verified.');
-      html += kpiHtml('mofu-kpi-noshow', noShowTotal, 'No Shows', 'Deals whose date entered "No Show/ Cancelled/ Rescheduled" falls in the selected quarter, excluding deals disqualified as Junk Lead.');
-      html += '</div>';
-
-      html += '<div class="section-heading">Weekly trend, ' + escapeHtml(mofuData.selectedQuarter.label) + '</div>';
-      html += '<div class="chart-row-3">' +
-        chartCardHtml('chart-mofu-meetings-weekly', 'Meetings Booked / week', 'Total across the current filter selection, one bar per week.', 'Same definition as the Meetings Booked tile, broken out by the week the deal entered Scheduled.') +
-        chartCardHtml('chart-mofu-saa-weekly', 'Sales Accepted / week', 'Total across the current filter selection, one bar per week.', 'Same definition as the Sales Accepted tile, broken out by the week the deal entered Sales Accepted Account.') +
-        chartCardHtml('chart-mofu-opps-weekly', 'Opportunities / week', 'Total across the current filter selection, one bar per week.', 'Same definition as the Opportunities tile, broken out by the week the deal became qualified to buy.') +
-      '</div>';
-
-      html += '<div class="section-heading">Where deals are stuck</div>';
-      html += '<div class="section-desc">Current state only - not affected by the quarter filter above.</div>';
-      html += '<div class="chart-row-3">' +
-        chartCardHtml('chart-mofu-noshow-stuck', 'Where deals are stuck - No Shows', 'All deals currently in the No Show stage, split by whether they\'ve been worked since.', 'Filters to deals currently in stage No Show/ Cancelled/ Rescheduled, split by Worked after No Show?.') +
-        chartCardHtml('chart-mofu-mql-stuck', 'Where deals are stuck - MQLs', 'Deals currently in the Scheduled stage for more than 30 days.', 'Filters to deals currently in stage Scheduled with Time in current stage over 30 days, bucketed 30+/60+/90+ days.') +
-        chartCardHtml('chart-mofu-saa-stuck', 'Where deals are stuck - SAA', 'Deals currently in the Sales Accepted Account stage for more than 30 days.', 'Filters to deals currently in stage Sales Accepted Account with Time in current stage over 30 days, bucketed 30+/60+/90+ days.') +
-      '</div>';
-
-      document.getElementById('mofu-activity-content').innerHTML = html;
-
-      var weeks = mofuData.weeks;
-      renderWeeklyTrendChart('chart-mofu-meetings-weekly', weeks, scope, function (o) { return t.meetingsBooked.weeklyByOwner[o.ownerId] || {}; },
-        function (owner, weekKey) { return (t.meetingsBooked.recordsByOwner[owner.ownerId] || []).filter(function (r) { return r.weekKey === weekKey; }); }, 'deal', PALETTE[0]);
-      renderWeeklyTrendChart('chart-mofu-saa-weekly', weeks, scope, function (o) { return t.salesAccepted.weeklyByOwner[o.ownerId] || {}; },
-        function (owner, weekKey) { return (t.salesAccepted.recordsByOwner[owner.ownerId] || []).filter(function (r) { return r.weekKey === weekKey; }); }, 'deal', PALETTE[1]);
-      renderWeeklyTrendChart('chart-mofu-opps-weekly', weeks, scope, function (o) { return t.opportunities.weeklyByOwner[o.ownerId] || {}; },
-        function (owner, weekKey) { return (t.opportunities.recordsByOwner[owner.ownerId] || []).filter(function (r) { return r.weekKey === weekKey; }); }, 'deal', PALETTE[3]);
-
-      renderWorkedVsNotWorkedChart('chart-mofu-noshow-stuck', scope, function (o) {
-        var d = mofuData.stuck.noShow[o.ownerId] || { worked: 0, notWorked: 0 };
-        return { worked: d.worked, notWorked: d.notWorked };
-      }, function (owner, label) {
-        var d = mofuData.stuck.noShow[owner.ownerId] || {};
-        return label === 'Worked' ? (d.workedRecords || []) : (d.notWorkedRecords || []);
-      }, 'deal');
-
-      renderAgeingChart('chart-mofu-mql-stuck', scope, mofuData.stuck.mql, 'deal');
-      renderAgeingChart('chart-mofu-saa-stuck', scope, mofuData.stuck.saa, 'deal');
-    }
-
-    // ============================= INPUTS =============================
-    var inputsData = null;
-
-    function loadInputs() {
-      apiGet('/api/inputs')
-        .then(renderInputs)
-        .catch(function (err) { showError('inputs-content', err); });
-    }
-
-    function renderInputs(data) {
-      inputsData = data;
-      var html = '';
-
-      html += '<div class="inputs-panel">' +
-        '<h3>Region Mapping</h3>' +
-        '<div class="section-desc">Change a region and it saves automatically. This same roster drives every other tab.</div>' +
-        '<table class="inputs-table"><thead><tr><th>Name</th><th>Region</th><th></th></tr></thead><tbody>';
-      data.rosterRows.forEach(function (row) {
-        html += '<tr>' +
-          '<td>' + escapeHtml(row.name) + '</td>' +
-          '<td><input type="text" value="' + escapeAttr(row.region) + '" data-region-owner="' + escapeAttr(row.ownerId) + '"></td>' +
-          '<td><button class="remove-btn" data-remove-owner="' + escapeAttr(row.ownerId) + '">Remove</button></td>' +
-        '</tr>';
-      });
-      html += '</tbody></table>' +
-        '<div class="add-row-form">' +
-          '<input type="text" id="add-sdr-email" placeholder="New SDR\'s HubSpot email">' +
-          '<input type="text" id="add-sdr-region" placeholder="Region (e.g. NAM)">' +
-          '<button class="btn-primary" id="add-sdr-btn">Add SDR</button>' +
-          '<span class="save-hint" id="add-sdr-status"></span>' +
+    function podiumColHtml(entry, place, regionTotal, uid) {
+      var tier = ['gold', 'silver', 'bronze'][place - 1];
+      var tierLabel = tier.toUpperCase();
+      if (!entry) {
+        return '<div class="podium-col empty place-' + place + '">' +
+          '<div class="podium-person">' + trophySvg(tier, uid).replace('<svg ', '<svg style="opacity:.18" ') +
+          '<div class="podium-name">—</div><div class="podium-count">—</div></div>' +
+          '<div class="podium-block"><div class="rank">' + place + '</div><div class="tier">' + tierLabel + '</div></div></div>';
+      }
+      return '<div class="podium-col place-' + place + '" data-owner="' + escapeHtml(entry.owner.ownerId) + '" title="See ' + escapeHtml(entry.owner.name) + '\'s deals">' +
+        '<div class="podium-person">' + trophySvg(tier, uid) +
+          '<div class="podium-name">' + escapeHtml(entry.owner.name) + '</div>' +
+          '<div class="podium-count" data-count="' + entry.count + '">' + entry.count + '</div>' +
         '</div>' +
+        '<div class="podium-block"><div class="rank">' + place + '</div><div class="tier">' + tierLabel + '</div>' +
+          '<div class="share">' + pct(entry.count, regionTotal) + ' of team</div></div>' +
       '</div>';
-
-      html += '<div class="inputs-panel">' +
-        '<h3>Quarterly Targets - ' + escapeHtml(data.fyLabel) + '</h3>' +
-        '<div class="section-desc">Blank cells show as N/A on the Summary tab\'s SDR Performance table.</div>' +
-        '<table class="inputs-table"><thead><tr><th>Name</th><th>Q1 Target</th><th>Q2 Target</th><th>Q3 Target</th><th>Q4 Target</th></tr></thead><tbody>';
-      data.targetRows.forEach(function (row) {
-        html += '<tr><td>' + escapeHtml(row.name) + '</td>';
-        [1, 2, 3, 4].forEach(function (qn) {
-          var val = row['q' + qn];
-          html += '<td><input type="number" data-target-owner="' + escapeAttr(row.ownerId) + '" data-target-quarter="' + qn + '" value="' + (val === null || typeof val === 'undefined' ? '' : val) + '"></td>';
-        });
-        html += '</tr>';
-      });
-      html += '</tbody></table>' +
-        (data.sheetUrl
-          ? '<div class="sheet-link"><a href="' + escapeAttr(data.sheetUrl) + '" target="_blank" rel="noopener">Open Roster &amp; Targets Sheet ↗</a></div>'
-          : '<div class="sheet-link">Stored locally in <code>data/roster.json</code> - a separate copy from the live Google Sheet.</div>') +
-      '</div>';
-
-      document.getElementById('inputs-content').innerHTML = html;
-      wireInputsEvents();
     }
 
-    function wireInputsEvents() {
-      document.querySelectorAll('[data-region-owner]').forEach(function (input) {
-        input.addEventListener('change', function () {
-          var ownerId = input.getAttribute('data-region-owner');
-          apiPost('/api/inputs/roster', { ownerId: ownerId, region: input.value.trim() })
-            .then(renderInputs)
-            .catch(function (err) { alert('Failed to save region: ' + (err && err.message ? err.message : err)); });
-        });
+    function podiumCardHtml(metric, region) {
+      var ranked = rankRegion(metric.key, region);
+      var total = sum(ranked, function (e) { return e.count; });
+      var uid = metric.key + '-' + region;
+      return '<div class="podium-card" data-metric="' + metric.key + '" data-region="' + region + '">' +
+        '<div class="podium-head"><div>' +
+          '<button class="podium-title" data-action="compare" title="Open the ' + region + ' rep-wise comparison"><span class="hash">#</span> ' + escapeHtml(metric.title) + '</button> ' + infoIcon(metric.info) +
+          '<div class="podium-sub"><span class="region-pill">' + region + '</span>' + escapeHtml(lbData.fyLabel) + ' to date</div>' +
+        '</div><button class="link-btn" data-action="ranking">View full ranking →</button></div>' +
+        '<div class="podium">' +
+          podiumColHtml(ranked[1], 2, total, uid + '-2') +
+          podiumColHtml(ranked[0], 1, total, uid + '-1') +
+          podiumColHtml(ranked[2], 3, total, uid + '-3') +
+        '</div>' +
+        '<div class="podium-foot"><span>' + ranked.length + ' Sales Development Rep' + (ranked.length === 1 ? '' : 's') + ' ranked</span>' +
+          '<span class="total">' + region + ' total: ' + total + ' ' + metric.unit + '</span></div>' +
+      '</div>';
+    }
+
+    function renderLeaderboard() {
+      var d = lbData;
+      document.getElementById('lb-subtitle').textContent = d.fyLabel + ' fiscal year to date (from 1 May) · top 3 reps per region';
+
+      var html = '';
+      LB_METRICS.forEach(function (m) {
+        html += '<div class="section-heading"><h3>' + escapeHtml(m.title) + '</h3></div>';
+        html += '<div class="section-desc">' + escapeHtml(m.desc) + '. Click a title to compare every rep in that region, or a rep to see their deals.</div>';
+        html += '<div class="podium-grid animate">' + REGION_ORDER.map(function (r) { return podiumCardHtml(m, r); }).join('') + '</div>';
       });
 
-      document.querySelectorAll('[data-remove-owner]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          if (!confirm('Remove this SDR from the roster? This does not touch anything in HubSpot.')) return;
-          apiPost('/api/inputs/roster/remove', { ownerId: btn.getAttribute('data-remove-owner') })
-            .then(renderInputs)
-            .catch(function (err) { alert('Failed to remove: ' + (err && err.message ? err.message : err)); });
-        });
-      });
+      html += '<div class="section-heading"><h3>SDR Performance</h3>' + infoIcon('Achieved = Allbound + Outbound opportunities (same definition as the first leaderboard), counted in the fiscal quarter of their Became Qualified to Buy Date. Targets are hard-coded in data/team.js.') + '</div>';
+      html += '<div class="section-desc">Target vs achieved Allbound + Outbound opportunities, per quarter of ' + escapeHtml(d.fyLabel) + '. Click an achieved number to see the deals.</div>';
+      html += sdrPerformanceHtml();
 
-      document.querySelectorAll('[data-target-owner]').forEach(function (input) {
-        input.addEventListener('change', function () {
-          var ownerId = input.getAttribute('data-target-owner');
-          var row = document.querySelectorAll('[data-target-owner="' + ownerId + '"]');
-          var values = { 1: null, 2: null, 3: null, 4: null };
-          row.forEach(function (i) {
-            var qn = i.getAttribute('data-target-quarter');
-            values[qn] = i.value === '' ? '' : Number(i.value);
+      var root = document.getElementById('lb-content');
+      root.innerHTML = html;
+
+      root.querySelectorAll('.podium-count[data-count]').forEach(function (el) { countUp(el, Number(el.getAttribute('data-count'))); });
+      root.querySelectorAll('.podium-card').forEach(function (card) {
+        var metric = LB_METRICS.filter(function (m) { return m.key === card.getAttribute('data-metric'); })[0];
+        var region = card.getAttribute('data-region');
+        card.querySelector('[data-action=compare]').addEventListener('click', function () { openComparisonModal(metric, region); });
+        card.querySelector('[data-action=ranking]').addEventListener('click', function () { openRankingModal(metric, region); });
+        card.querySelectorAll('.podium-col[data-owner]').forEach(function (col) {
+          col.addEventListener('click', function () {
+            var o = lbData.owners[col.getAttribute('data-owner')];
+            openRecordsModal(o.name + ' — ' + metric.title + ' (' + lbData.fyLabel + ')', recordsFor(metric.key, o.ownerId), 'deal');
           });
-          apiPost('/api/inputs/targets', { ownerId: ownerId, q1: values[1], q2: values[2], q3: values[3], q4: values[4] })
-            .then(function () { /* keep inputs focused, don't full re-render */ })
-            .catch(function (err) { alert('Failed to save target: ' + (err && err.message ? err.message : err)); });
         });
       });
-
-      document.getElementById('add-sdr-btn').addEventListener('click', function () {
-        var email = document.getElementById('add-sdr-email').value.trim();
-        var region = document.getElementById('add-sdr-region').value.trim();
-        var status = document.getElementById('add-sdr-status');
-        if (!email || !region) { status.textContent = 'Email and region are both required.'; return; }
-        status.textContent = 'Adding…';
-        apiPost('/api/inputs/roster/add', { email: email, region: region })
-          .then(function (data) { status.textContent = ''; renderInputs(data); })
-          .catch(function (err) { status.textContent = 'Failed: ' + (err && err.message ? err.message : err); });
+      root.querySelectorAll('td[data-perf-owner]').forEach(function (td) {
+        td.addEventListener('click', function () {
+          var o = lbData.owners[td.getAttribute('data-perf-owner')];
+          var q = Number(td.getAttribute('data-perf-q')) || null;
+          openRecordsModal(o.name + ' — Allbound + Outbound opps, ' + (q ? 'Q' + q + ' ' : '') + lbData.fyLabel, recordsFor('allboundOpps', o.ownerId, q), 'deal');
+        });
       });
     }
 
-    // Initial load - staggered slightly so Summary and Account Activity's HubSpot calls
-    // don't all fire in the same instant and trip HubSpot's per-second rate limit.
-    // Contact Activity, MOFU Activity, and Inputs load lazily on first visit instead.
-    loadSummary();
-    setTimeout(loadAccountActivity, 1500);
+    function countUp(el, target) {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce || target <= 0) { el.textContent = target; return; }
+      var delay = 600, duration = 900, t0 = null;
+      el.textContent = '0';
+      function frame(t) {
+        if (t0 === null) t0 = t;
+        var p = Math.min(1, Math.max(0, (t - t0 - delay) / duration));
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // Title click: every rep in the region, one bar each, split by fiscal quarter - same records as the podium.
+    function openComparisonModal(metric, region) {
+      var ranked = rankRegion(metric.key, region);
+      var quarters = lbData.quarters.filter(function (q) { return q.quarterNumber <= lbData.currentQuarterNumber; });
+      openModal(metric.title + ' — ' + region + ' rep-wise comparison', lbData.fyLabel + ' to date · ' + metric.desc,
+        '<div class="chart-box"><canvas id="cmp-canvas"></canvas></div><div class="hint">Click a bar segment to see the deals behind it.</div>',
+        function (overlay, group) {
+          var canvas = overlay.querySelector('#cmp-canvas');
+          canvas.id = group + '-canvas';
+          stackedBarChart(group, canvas.id, ranked.map(function (e) { return e.owner.name; }), quarters.map(function (q, i) {
+            return {
+              label: q.label, color: QUARTER_COLORS[i % QUARTER_COLORS.length],
+              values: ranked.map(function (e) { return recordsFor(metric.key, e.owner.ownerId, q.quarterNumber).length; })
+            };
+          }), metric.unit, function (si, xi) {
+            var e = ranked[xi], q = quarters[si];
+            openRecordsModal(e.owner.name + ' — ' + metric.title + ', ' + q.label, recordsFor(metric.key, e.owner.ownerId, q.quarterNumber), 'deal');
+          });
+        });
+    }
+
+    // "View full ranking": every rep ranked with a per-quarter breakdown, plus all the underlying deals.
+    function openRankingModal(metric, region) {
+      var ranked = rankRegion(metric.key, region);
+      var total = sum(ranked, function (e) { return e.count; });
+      var quarters = lbData.quarters.filter(function (q) { return q.quarterNumber <= lbData.currentQuarterNumber; });
+      var regionRecords = lbData.metrics[metric.key].filter(function (r) { return lbData.owners[r.ownerId] && lbData.owners[r.ownerId].region === region; });
+
+      var html = '<div class="table-scroll" style="max-height:none;margin-bottom:14px"><table class="data-table"><thead><tr><th>#</th><th>SDR</th>' +
+        quarters.map(function (q) { return '<th class="num">' + escapeHtml(q.label) + '</th>'; }).join('') +
+        '<th class="num">Total</th><th class="num">% of ' + region + '</th></tr></thead><tbody>';
+      ranked.forEach(function (e, i) {
+        html += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(e.owner.name) + '</td>' +
+          quarters.map(function (q) {
+            var n = recordsFor(metric.key, e.owner.ownerId, q.quarterNumber).length;
+            return '<td class="num' + (n ? ' clickable' : ' zero') + '" data-o="' + e.owner.ownerId + '" data-q="' + q.quarterNumber + '">' + n + '</td>';
+          }).join('') +
+          '<td class="num clickable" data-o="' + e.owner.ownerId + '" data-q="">' + e.count + '</td><td class="num">' + pct(e.count, total) + '</td></tr>';
+      });
+      if (!ranked.length) html += '<tr><td colspan="' + (quarters.length + 4) + '" class="na">No ' + metric.unit + ' yet this fiscal year.</td></tr>';
+      html += '</tbody></table></div>';
+      html += '<button class="btn" data-all>Show all ' + regionRecords.length + ' underlying deals</button>';
+
+      openModal(metric.title + ' — ' + region + ' full ranking', lbData.fyLabel + ' to date · ' + metric.desc, html, function (overlay) {
+        overlay.querySelectorAll('td[data-o]').forEach(function (td) {
+          if (td.classList.contains('zero')) return;
+          td.addEventListener('click', function () {
+            var o = lbData.owners[td.getAttribute('data-o')];
+            var q = Number(td.getAttribute('data-q')) || null;
+            openRecordsModal(o.name + ' — ' + metric.title + (q ? ', Q' + q : '') + ' ' + lbData.fyLabel, recordsFor(metric.key, o.ownerId, q), 'deal');
+          });
+        });
+        overlay.querySelector('[data-all]').addEventListener('click', function () {
+          openRecordsModal(region + ' — ' + metric.title + ' (' + lbData.fyLabel + ')', regionRecords, 'deal');
+        });
+      });
+    }
+
+    function sdrPerformanceHtml() {
+      var d = lbData;
+      var targetsApply = d.targetsFiscalYear === d.fyLabel;
+      var achieved = {};
+      d.metrics.allboundOpps.forEach(function (r) {
+        achieved[r.ownerId] = achieved[r.ownerId] || {};
+        achieved[r.ownerId][r.quarterNumber] = (achieved[r.ownerId][r.quarterNumber] || 0) + 1;
+      });
+      function targetOf(id, qn) {
+        var t = targetsApply && d.targets[id] ? d.targets[id]['q' + qn] : null;
+        return t === null || t === undefined || t === '' ? null : Number(t);
+      }
+      // Leave out reps with no target and nothing achieved all year (e.g. someone who has left).
+      var rows = ownersList(d.owners).sort(regionSort).filter(function (o) {
+        return [1, 2, 3, 4].some(function (qn) { return targetOf(o.ownerId, qn) !== null || (achieved[o.ownerId] || {})[qn]; });
+      });
+
+      var html = '<div class="table-card"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-col">SDR</th>';
+      [1, 2, 3, 4].forEach(function (qn) {
+        var cur = qn === d.currentQuarterNumber ? ' current' : '';
+        html += '<th class="num' + cur + '">Q' + qn + ' Target</th><th class="num' + cur + '">Q' + qn + ' Achieved</th><th class="num' + cur + '">Q' + qn + ' %</th>';
+      });
+      html += '<th class="num">FY Target</th><th class="num">FY Achieved</th><th class="num">FY %</th></tr></thead><tbody>';
+
+      REGION_ORDER.forEach(function (region) {
+        var inRegion = rows.filter(function (o) { return o.region === region; });
+        if (!inRegion.length) return;
+        html += '<tr class="region-row"><td class="sticky-col">' + region + '</td><td colspan="15"></td></tr>';
+        inRegion.forEach(function (o) {
+          var fyT = 0, fyHasT = false, fyA = 0;
+          html += '<tr><td class="sticky-col">' + escapeHtml(o.name) + '</td>';
+          [1, 2, 3, 4].forEach(function (qn) {
+            var t = targetOf(o.ownerId, qn);
+            var a = (achieved[o.ownerId] || {})[qn] || 0;
+            if (t !== null) { fyT += t; fyHasT = true; }
+            fyA += a;
+            html += '<td class="num">' + (t === null ? '<span class="na">N/A</span>' : t) + '</td>' +
+              '<td class="num' + (a ? ' clickable' : ' zero') + '"' + (a ? ' data-perf-owner="' + o.ownerId + '" data-perf-q="' + qn + '"' : '') + '>' + a + '</td>' +
+              '<td class="num">' + attainmentHtml(a, t) + '</td>';
+          });
+          html += '<td class="num">' + (fyHasT ? fyT : '<span class="na">N/A</span>') + '</td>' +
+            '<td class="num' + (fyA ? ' clickable' : ' zero') + '"' + (fyA ? ' data-perf-owner="' + o.ownerId + '" data-perf-q=""' : '') + '>' + fyA + '</td>' +
+            '<td class="num">' + attainmentHtml(fyA, fyHasT ? fyT : null) + '</td></tr>';
+        });
+      });
+      if (!rows.length) html += '<tr><td colspan="16" class="na">No targets or Allbound + Outbound opportunities yet.</td></tr>';
+      html += '</tbody></table></div></div>';
+      if (!targetsApply) html += '<div class="hint">Targets in data/team.js are for ' + escapeHtml(d.targetsFiscalYear) + ', so they are not shown against ' + escapeHtml(d.fyLabel) + '.</div>';
+      return html;
+    }
+
+    function attainmentHtml(achieved, target) {
+      if (target === null || target === undefined) return '<span class="na">—</span>';
+      if (!target) return '<span class="na">—</span>';
+      var p = achieved / target;
+      var cls = p >= 1 ? 'good' : p >= 0.7 ? 'mid' : 'low';
+      return '<span class="att ' + cls + '">' + Math.round(p * 100) + '%</span>';
+    }
+
+    // ============================= REP OVERVIEW =============================
+    var RO_METRICS = [
+      { key: 'reached', group: 'activity', type: 'contact', chart: 'line', title: 'Contacts reached out', unit: 'Contacts',
+        desc: 'Distinct contacts with any call, email or LinkedIn message from their SDR in the period.',
+        info: 'A contact counts in a period if the SDR (Activity assigned to) logged an outgoing call, outgoing email or LinkedIn message against them in that period AND the contact\'s SDR owner (Contact) is that same SDR. A contact touched in two periods counts in both.' },
+      { key: 'emailed', group: 'activity', type: 'contact', chart: 'line', title: 'Contacts emailed', unit: 'Contacts',
+        desc: 'Distinct contacts sent an outgoing email by their SDR in the period.',
+        info: 'Same rule as Contacts reached out, counting outgoing emails only.' },
+      { key: 'linkedin', group: 'activity', type: 'contact', chart: 'line', title: 'Contacts sent a LinkedIn message', unit: 'Contacts',
+        desc: 'Distinct contacts with a LinkedIn message (InMail) logged by their SDR in the period.',
+        info: 'Same rule as Contacts reached out, counting LinkedIn messages logged to HubSpot by the LinkedIn Sales Navigator integration.' },
+      { key: 'called', group: 'activity', type: 'contact', chart: 'line', title: 'Contacts called', unit: 'Contacts',
+        desc: 'Distinct contacts called by their SDR in the period.',
+        info: 'Same rule as Contacts reached out, counting calls. Calls marked Inbound are excluded (most calls have no direction set, so only explicit Inbound is dropped).' },
+      { key: 'meetings', group: 'deals', type: 'deal', chart: 'bar', title: 'Meetings booked', unit: 'Meetings',
+        desc: 'Deals that entered the Scheduled stage, by SDR Owner (Deal). Junk Leads excluded.',
+        info: 'Deals in the Sales pipeline where SDR Owner (Deal) is the rep, bucketed by the date the deal entered Scheduled. Deals disqualified as Junk Lead are excluded.' },
+      { key: 'salesAccepted', group: 'deals', type: 'deal', chart: 'bar', title: 'Sales accepted', unit: 'Deals',
+        desc: 'Deals that entered the Sales Accepted Account stage, by SDR Owner (Deal). Junk Leads excluded.',
+        info: 'Deals in the Sales pipeline where SDR Owner (Deal) is the rep, bucketed by the date the deal entered Sales Accepted Account. Deals disqualified as Junk Lead are excluded.' },
+      { key: 'opps', group: 'deals', type: 'deal', chart: 'bar', title: 'Opportunities created', unit: 'Opportunities',
+        desc: 'Deals by SDR Owner (Deal), bucketed by Became Qualified to Buy Date.',
+        info: 'Deals in the Sales pipeline where SDR Owner (Deal) is the rep, bucketed by Became Qualified to Buy Date, in an opportunity stage (Qualified to buy through Closed won/lost, Debook, Deal Desk Verified).' },
+      { key: 'allboundOpps', group: 'deals', type: 'deal', chart: 'bar', title: 'Allbound + Outbound opportunities created', unit: 'Opportunities',
+        desc: 'Opportunities created with Final Lead Source Allbound or Pure Outbound.',
+        info: 'Same as Opportunities created, limited to Final Lead Source Allbound or Pure Outbound.' },
+      { key: 'thirdParty', group: 'accounts', type: 'account', chart: 'line', title: '3rd party intent accounts with activity', unit: 'Accounts',
+        desc: 'Accounts tagged 3rd Party Signals where the SDR reached out to a contact in the period.',
+        info: 'Companies whose TAGS- SDR Categories is 3rd Party Signals, counted in each period in which the SDR reached out (call, email or LinkedIn) to one of their own contacts at that company. An account active in two periods counts in both.' },
+      { key: 'warm', group: 'accounts', type: 'account', chart: 'line', title: 'Warm accounts with activity', unit: 'Accounts',
+        desc: 'Accounts tagged Warm (any tag containing "Warm", plus Surging Accounts) with SDR outreach in the period.',
+        info: 'Companies whose TAGS- SDR Categories contains "Warm" (Warm Accounts, Strategic Warm Accounts, Warm Event Accounts) or is Surging Accounts, counted in each period in which the SDR reached out to one of their own contacts there.' },
+      { key: 'event', group: 'accounts', type: 'account', chart: 'line', title: 'Event accounts with activity', unit: 'Accounts',
+        desc: 'Accounts tagged with an Event category with SDR outreach in the period.',
+        info: 'Companies whose TAGS- SDR Categories contains "Event" (Warm Event Accounts, Cold Event Accounts), counted in each period in which the SDR reached out to one of their own contacts there.' }
+    ];
+    var RO_PREFIX = { week: 'Week on week', month: 'Month on month', quarter: 'Quarter on quarter' };
+    var roData = {};
+    var roState = { granularity: 'week', mode: 'region', region: 'ALL', sdrId: null, tableMetric: 'reached' };
+    var roRequest = 0;
+
+    wireSegmented('ro-granularity', function (g) { roState.granularity = g; loaders['rep-overview'](false); });
+    wireScopeFilter('ro', roState, renderRepOverview);
+
+    loaders['rep-overview'] = function (refresh) {
+      var g = roState.granularity;
+      if (roData[g] && !refresh) { renderRepOverview(); return; }
+      var req = ++roRequest;
+      document.getElementById('ro-content').innerHTML = loadingHtml('Loading ' + RO_PREFIX[g].toLowerCase() + ' activity from HubSpot… the first load can take a minute.');
+      apiGet('/api/rep-overview?granularity=' + g + (refresh ? '&refresh=1' : ''))
+        .then(function (data) {
+          roData[g] = data;
+          if (req !== roRequest) return; // a newer granularity was picked meanwhile
+          notePortalId(data.portalId);
+          setDataAsOf(data.generatedAt);
+          populateScopeFilter('ro', data.owners, roState);
+          renderRepOverview();
+        })
+        .catch(function (err) { if (req === roRequest) document.getElementById('ro-content').innerHTML = errorHtml(err); });
+    };
+
+    // Rows (contacts / accounts / deals) behind one metric, for one SDR and one period.
+    function roRows(data, metric, ownerId, periodKey) {
+      var byOwner = data[metric.group][metric.key][ownerId] || {};
+      var rows = byOwner[periodKey] || [];
+      var owner = data.owners[ownerId];
+      if (metric.type === 'contact') {
+        return rows.map(function (r) {
+          var c = data.contacts[r.id] || {};
+          return { id: r.id, name: c.name, email: c.email, companyName: c.companyName || c.companyDomain, sdrOwner: owner.name, channels: r.channels, lastTouch: r.lastTouch };
+        });
+      }
+      if (metric.type === 'account') {
+        return rows.map(function (r) {
+          var c = data.companies[r.id] || {};
+          return { id: r.id, name: c.name, domain: c.domain, tagCategory: c.tagCategory, sdrOwner: owner.name, contacts: r.contacts, lastTouch: r.lastTouch };
+        });
+      }
+      return rows;
+    }
+    function roCount(data, metric, ownerId, periodKey) {
+      return ((data[metric.group][metric.key][ownerId] || {})[periodKey] || []).length;
+    }
+
+    function renderRepOverview() {
+      var data = roData[roState.granularity];
+      if (!data) return;
+      destroyCharts('ro');
+      var scope = scopeOwners(roState, data.owners);
+      var periods = data.periods;
+      var prefix = RO_PREFIX[roState.granularity];
+      var periodWord = { week: 'week', month: 'month', quarter: 'quarter' }[roState.granularity];
+
+      document.getElementById('ro-subtitle').textContent = scopeLabel(roState, data.owners) + ' · ' +
+        periods[0].label + ' – ' + periods[periods.length - 1].label + ' · data as of ' + formatTime(data.generatedAt);
+
+      var html = '';
+      (data.warnings || []).forEach(function (w) { html += '<div class="warning-box">' + escapeHtml(w) + '</div>'; });
+
+      function card(m) {
+        var desc = m.desc + (m.chart === 'line' ? ' One line per SDR.' : ' One bar per SDR, split by ' + periodWord + '.');
+        return chartCardHtml('ro-chart-' + m.key, prefix + ' — ' + m.title, desc + ' Click to see the records.', m.info);
+      }
+      html += '<div class="section-heading"><h3>Outreach</h3></div><div class="section-desc">Contacts each SDR reached out to.</div>';
+      html += '<div class="chart-grid">' + RO_METRICS.filter(function (m) { return m.group === 'activity'; }).map(card).join('') + '</div>';
+      html += '<div class="section-heading"><h3>Meetings &amp; opportunities</h3></div><div class="section-desc">Deals where the rep is SDR Owner (Deal).</div>';
+      html += '<div class="chart-grid">' + RO_METRICS.filter(function (m) { return m.group === 'deals'; }).map(card).join('') + '</div>';
+      html += '<div class="section-heading"><h3>Accounts with activity</h3></div><div class="section-desc">Tagged accounts the SDR worked in each ' + periodWord + '.</div>';
+      html += '<div class="chart-grid">' + RO_METRICS.filter(function (m) { return m.group === 'accounts'; }).map(card).join('') + '</div>';
+
+      html += '<div class="section-heading"><h3>Compare in a table</h3></div>';
+      html += '<div class="section-desc">Pick a metric. Follows the Region / SDR filter at the top. Click a number to see the records.</div>';
+      html += '<div class="table-card"><div class="metric-tabs" id="ro-table-tabs">' + RO_METRICS.map(function (m) {
+        return '<button data-metric="' + m.key + '"' + (m.key === roState.tableMetric ? ' class="active"' : '') + '>' + escapeHtml(m.title) + '</button>';
+      }).join('') + '</div><div id="ro-table"></div></div>';
+
+      document.getElementById('ro-content').innerHTML = html;
+
+      RO_METRICS.forEach(function (m) {
+        // Leave out SDRs with no data for this metric.
+        var active = scope.filter(function (o) { return periods.some(function (p) { return roCount(data, m, o.ownerId, p.key); }); });
+        function pick(owner, period) {
+          openRecordsModal(owner.name + ' — ' + m.title + ', ' + period.label, roRows(data, m, owner.ownerId, period.key), m.type);
+        }
+        if (m.chart === 'line') {
+          lineChart('ro', 'ro-chart-' + m.key, periods.map(function (p) { return p.label; }), active.map(function (o) {
+            return { label: o.name, color: colorForOwner(data.owners, o.ownerId), values: periods.map(function (p) { return roCount(data, m, o.ownerId, p.key); }) };
+          }), m.unit, function (si, xi) { pick(active[si], periods[xi]); });
+        } else {
+          var ramp = PERIOD_RAMP.slice(PERIOD_RAMP.length - periods.length);
+          stackedBarChart('ro', 'ro-chart-' + m.key, active.map(function (o) { return o.name; }), periods.map(function (p, i) {
+            return { label: p.label, color: ramp[i], values: active.map(function (o) { return roCount(data, m, o.ownerId, p.key); }) };
+          }), m.unit, function (si, xi) { pick(active[xi], periods[si]); });
+        }
+      });
+
+      document.querySelectorAll('#ro-table-tabs button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          roState.tableMetric = b.getAttribute('data-metric');
+          document.querySelectorAll('#ro-table-tabs button').forEach(function (x) { x.classList.toggle('active', x === b); });
+          renderRepOverviewTable();
+        });
+      });
+      renderRepOverviewTable();
+    }
+
+    function renderRepOverviewTable() {
+      var data = roData[roState.granularity];
+      var m = RO_METRICS.filter(function (x) { return x.key === roState.tableMetric; })[0];
+      var periods = data.periods;
+      var scope = scopeOwners(roState, data.owners);
+      var rows = scope.map(function (o) {
+        var counts = periods.map(function (p) { return roCount(data, m, o.ownerId, p.key); });
+        return { owner: o, counts: counts, total: sum(counts, function (n) { return n; }) };
+      }).filter(function (r) { return r.total > 0; });
+
+      var html = '<div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-col">SDR Name</th><th>Region</th>' +
+        periods.map(function (p) { return '<th class="num">' + escapeHtml(p.label) + '</th>'; }).join('') +
+        '<th class="num">Total</th></tr></thead><tbody>';
+      rows.forEach(function (r) {
+        html += '<tr><td class="sticky-col">' + escapeHtml(r.owner.name) + '</td><td>' + escapeHtml(r.owner.region) + '</td>' +
+          r.counts.map(function (n, i) {
+            return '<td class="num' + (n ? ' clickable' : ' zero') + '" data-o="' + r.owner.ownerId + '" data-p="' + i + '">' + n + '</td>';
+          }).join('') + '<td class="num"><strong>' + r.total + '</strong></td></tr>';
+      });
+      if (rows.length > 1) {
+        html += '<tr class="total-row"><td class="sticky-col">Total</td><td></td>' + periods.map(function (p, i) {
+          return '<td class="num">' + sum(rows, function (r) { return r.counts[i]; }) + '</td>';
+        }).join('') + '<td class="num">' + sum(rows, function (r) { return r.total; }) + '</td></tr>';
+      }
+      if (!rows.length) html += '<tr><td colspan="' + (periods.length + 3) + '" class="na">No data for this selection.</td></tr>';
+      html += '</tbody></table></div>';
+
+      var holder = document.getElementById('ro-table');
+      holder.innerHTML = html;
+      holder.querySelectorAll('td[data-o]').forEach(function (td) {
+        if (td.classList.contains('zero')) return;
+        td.addEventListener('click', function () {
+          var o = data.owners[td.getAttribute('data-o')];
+          var p = periods[Number(td.getAttribute('data-p'))];
+          openRecordsModal(o.name + ' — ' + m.title + ', ' + p.label, roRows(data, m, o.ownerId, p.key), m.type);
+        });
+      });
+    }
+
+    // ============================= ACTIONABLES =============================
+    var AC_ACCOUNT_CHARTS = [
+      { key: 'thirdParty', title: '3rd party intent accounts not worked', color: '#E58080',
+        desc: 'Accounts tagged 3rd Party Signals that the SDR owns but has not worked yet.',
+        info: 'Companies where SDR Owner (Company) is the rep, TAGS- SDR Categories is 3rd Party Signals, and Account worked after Allocation? is not Yes.' },
+      { key: 'warm', title: 'Warm accounts not worked', color: '#E2B054',
+        desc: 'Accounts tagged Warm (or Surging) that the SDR owns but has not worked yet.',
+        info: 'Companies where SDR Owner (Company) is the rep, TAGS- SDR Categories contains "Warm" or is Surging Accounts, and Account worked after Allocation? is not Yes.' },
+      { key: 'event', title: 'Event accounts not worked', color: '#C792EA',
+        desc: 'Accounts with an Event tag that the SDR owns but has not worked yet.',
+        info: 'Companies where SDR Owner (Company) is the rep, TAGS- SDR Categories contains "Event", and Account worked after Allocation? is not Yes.' },
+      { key: 'notConverted', title: 'Accounts worked but not converted to meetings', color: '#6FA8E8',
+        desc: 'Worked accounts whose Lifecycle Stage (Custom) has not reached a deal stage yet.',
+        info: 'Companies where SDR Owner (Company) is the rep and Account worked after Allocation? is Yes, whose Lifecycle Stage (Custom) is not Deal in Sales Pipeline (MQL Stages), Deal in Sales Pipeline, or Customer/ Churned Customer.' }
+    ];
+    var acData = null;
+    var acState = { mode: 'region', region: 'ALL', sdrId: null };
+    wireScopeFilter('ac', acState, renderActionables);
+
+    loaders.actionables = function (refresh) {
+      document.getElementById('ac-content').innerHTML = loadingHtml();
+      apiGet('/api/actionables' + (refresh ? '?refresh=1' : ''))
+        .then(function (data) {
+          acData = data; notePortalId(data.portalId); setDataAsOf(data.generatedAt);
+          populateScopeFilter('ac', data.owners, acState);
+          renderActionables();
+        })
+        .catch(function (err) { document.getElementById('ac-content').innerHTML = errorHtml(err); });
+    };
+
+    // One bar per SDR (highest first), SDRs at zero left out. valueFn(owner) -> records[]
+    function perRepBarChart(canvasId, scope, color, label, recordsFn, title, type) {
+      var rows = scope.map(function (o) { return { owner: o, records: recordsFn(o) }; })
+        .filter(function (r) { return r.records.length; })
+        .sort(function (a, b) { return b.records.length - a.records.length; });
+      stackedBarChart('ac', canvasId, rows.map(function (r) { return r.owner.name; }),
+        [{ label: label, color: color, values: rows.map(function (r) { return r.records.length; }) }], label,
+        function (si, xi) { openRecordsModal(rows[xi].owner.name + ' — ' + title, rows[xi].records, type); });
+    }
+
+    function renderActionables() {
+      if (!acData) return;
+      destroyCharts('ac');
+      var scope = scopeOwners(acState, acData.owners);
+      var a = acData.accounts, s = acData.stuck;
+      var sl = scopeLabel(acState, acData.owners);
+
+      var html = '<div class="kpi-row">';
+      AC_ACCOUNT_CHARTS.forEach(function (c) {
+        var n = sum(scope, function (o) { return (a[c.key][o.ownerId] || []).length; });
+        html += '<button class="kpi-card' + (n ? ' alert' : '') + '" data-kpi="' + c.key + '"><div class="value">' + n + '</div><div class="label">' + escapeHtml(c.title) + '</div></button>';
+      });
+      html += '</div>';
+
+      html += '<div class="section-heading"><h3>Accounts to work</h3></div><div class="section-desc">' + escapeHtml(sl) + ' · reps with nothing outstanding are left out of each chart.</div>';
+      html += '<div class="chart-grid">' + AC_ACCOUNT_CHARTS.map(function (c) { return chartCardHtml('ac-chart-' + c.key, c.title, c.desc + ' Click a bar for the list.', c.info, true); }).join('') + '</div>';
+
+      html += '<div class="section-heading"><h3>Where deals are stuck</h3></div><div class="section-desc">Deals currently sitting in a stage, by SDR Owner (Deal).</div>';
+      html += '<div class="chart-grid cols-1">' +
+        chartCardHtml('ac-chart-noshow', 'No Shows', 'Deals currently in No Show / Cancelled / Rescheduled, split by whether they have been worked since.', 'Deals currently in stage No Show/ Cancelled/ Rescheduled, split by Worked after No Show?.', true) +
+        chartCardHtml('ac-chart-mql', 'MQLs (Scheduled)', 'Deals in the Scheduled stage for 30+ days.', 'Deals currently in stage Scheduled, bucketed by days since they entered it: 30-59, 60-89, 90+.', true) +
+        chartCardHtml('ac-chart-saa', 'Sales Accepted (SAA)', 'Deals in the Sales Accepted Account stage for 30+ days.', 'Deals currently in stage Sales Accepted Account, bucketed by days since they entered it: 30-59, 60-89, 90+.', true) +
+      '</div>';
+
+      document.getElementById('ac-content').innerHTML = html;
+
+      document.querySelectorAll('[data-kpi]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          var c = AC_ACCOUNT_CHARTS.filter(function (x) { return x.key === el.getAttribute('data-kpi'); })[0];
+          var recs = scope.reduce(function (acc, o) { return acc.concat(a[c.key][o.ownerId] || []); }, []);
+          openRecordsModal(sl + ' — ' + c.title, recs, 'company');
+        });
+      });
+
+      AC_ACCOUNT_CHARTS.forEach(function (c) {
+        perRepBarChart('ac-chart-' + c.key, scope, c.color, 'Accounts', function (o) { return a[c.key][o.ownerId] || []; }, c.title, 'company');
+      });
+
+      // No shows: worked vs not worked
+      var noShowTotal = function (o) { var d = s.noShow[o.ownerId]; return d ? d.worked.length + d.notWorked.length : 0; };
+      var ns = scope.filter(noShowTotal).sort(function (x, y) { return noShowTotal(y) - noShowTotal(x); });
+      stackedBarChart('ac', 'ac-chart-noshow', ns.map(function (o) { return o.name; }), [
+        { label: 'Not worked', color: '#E58080', values: ns.map(function (o) { return s.noShow[o.ownerId].notWorked.length; }) },
+        { label: 'Worked', color: '#5CC3AE', values: ns.map(function (o) { return s.noShow[o.ownerId].worked.length; }) }
+      ], 'Deals', function (si, xi) {
+        var o = ns[xi], key = si === 0 ? 'notWorked' : 'worked';
+        openRecordsModal(o.name + ' — No Shows, ' + (si === 0 ? 'not worked' : 'worked'), s.noShow[o.ownerId][key], 'deal');
+      });
+
+      var buckets = [
+        { key: 'over30', label: '30-59 days', color: '#E2B054' },
+        { key: 'over60', label: '60-89 days', color: '#F29E6D' },
+        { key: 'over90', label: '90+ days', color: '#E58080' }
+      ];
+      [['mql', 'MQLs stuck in Scheduled'], ['saa', 'stuck in Sales Accepted']].forEach(function (pair) {
+        var byOwner = s[pair[0]];
+        var total = function (o) { var d = byOwner[o.ownerId]; return d ? sum(buckets, function (b) { return d[b.key].length; }) : 0; };
+        var list = scope.filter(total).sort(function (x, y) { return total(y) - total(x); });
+        stackedBarChart('ac', 'ac-chart-' + pair[0], list.map(function (o) { return o.name; }), buckets.map(function (b) {
+          return { label: b.label, color: b.color, values: list.map(function (o) { return byOwner[o.ownerId][b.key].length; }) };
+        }), 'Deals', function (si, xi) {
+          var o = list[xi], b = buckets[si];
+          openRecordsModal(o.name + ' — ' + pair[1] + ' ' + b.label, byOwner[o.ownerId][b.key], 'stuckDeal');
+        });
+      });
+    }
+
+    // ============================= boot =============================
+    showPage(location.hash.slice(1) || 'leaderboard');
   </script>
 </body>
 </html>
