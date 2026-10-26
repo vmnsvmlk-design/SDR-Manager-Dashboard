@@ -48,11 +48,17 @@ Weeks run Monday-Sunday (UTC); the fiscal year starts 1 May.
 
 - `server.js` - one JSON endpoint per tab (`/api/leaderboard`, `/api/rep-overview?granularity=week|month|quarter`, `/api/actionables`).
 - `lib/*Service.js` - one file per tab, built from HubSpot's CRM Search, batch read and v4 associations APIs.
-- `lib/hubspot.js` - HubSpot client. Requests run concurrently through a small rate limiter, with
-  retry on 429. Engagements are queried one SDR at a time, and any query that would exceed
-  HubSpot's 10,000-result search cap is automatically split into smaller time windows.
-- Results are cached in memory for 15 minutes; the **Refresh data** button in the sidebar forces
-  a fresh pull. The first Rep Overview load (especially quarter on quarter) can take a minute.
+- `lib/hubspot.js` - HubSpot client. Every request goes through a rate limiter that stays under
+  HubSpot's limits (4 searches/second, 9 other requests/second), and 429s are retried.
+  Engagements are queried one SDR at a time, and any query that would exceed HubSpot's
+  10,000-result search cap is automatically split into smaller time windows.
+- **Caching / warm-up:** on startup and every 20 minutes the server pulls every tab from HubSpot
+  in the background, one after another, and keeps the last good copy in memory. Page loads are
+  served from that copy, so they're instant once warm; the "Data as of" time in the sidebar shows
+  how fresh it is. Right after a deploy the first warm-up takes a few minutes (Rep Overview
+  quarter on quarter is the slowest); a tab opened before its warm-up finishes just waits for it.
+  Activity is fetched in segments shared by the week / month / quarter views, so each email,
+  call or message is only pulled once. The **Refresh data** button forces a fresh pull.
 - `public/index.html` - the whole UI (Chart.js).
 
 ## Setup
